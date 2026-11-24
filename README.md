@@ -59,7 +59,8 @@ uv run --project <path to this checkout> dbt-macro-test run
 
 ## Development
 
-Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
+The tool supports Python 3.11 and later (3.11 to 3.14 are tested in CI).
+Development needs [uv](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
