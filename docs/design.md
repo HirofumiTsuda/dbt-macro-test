@@ -189,8 +189,8 @@ from dbt.node_types import NodeType
 
 macro = Macro(
     path="macros/greeting.sql",
-    macro_sql='{% macro greeting(name) %}Hello, {{ name }}! '
-              'default_country={{ var("country", "JP") }}{% endmacro %}',
+    macro_sql="{% macro greeting(name) %}Hello, {{ name }}! "
+    'default_country={{ var("country", "JP") }}{% endmacro %}',
     original_file_path="macros/greeting.sql",
     package_name="test_pkg",
     resource_type=NodeType.Macro,
@@ -261,9 +261,11 @@ files:
 ```python
 from dbt_macro_test import load_macro
 
+
 def test_greeting():
     greeting = load_macro("macros/greeting.sql", "greeting")
     assert greeting("World") == "Hello, World!"
+
 
 def test_generate_schema_name_override():
     fn = load_macro("macros/generate_schema_name.sql", "generate_schema_name")
