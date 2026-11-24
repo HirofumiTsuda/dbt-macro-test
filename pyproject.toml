@@ -1,0 +1,22 @@
+[project]
+name = "dbt-macro-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Hirofumi Tsuda" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "dbt-core>=1.12.5",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "dbt-duckdb>=1.11.0",
+    "pytest>=9.1.1",
+]
