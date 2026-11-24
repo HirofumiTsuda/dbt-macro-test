@@ -34,6 +34,13 @@ def macro_call(macro: str, arguments: dict[str, Any]) -> str:
     return f"{macro}({args})"
 
 
+def model_sql(call: str, output: str) -> str:
+    """The throwaway model: an expression gets a column name, columns bring their own."""
+    if output == "columns":
+        return f"select {{{{ {call} }}}}\n"
+    return f"select {{{{ {call} }}}} as result\n"
+
+
 def model_name(spec_path: Path, test_dir: Path, macro: str, case: str) -> str:
     relative = spec_path.relative_to(test_dir).with_suffix("")
     return re.sub(r"\W", "_", f"_mt_{relative.as_posix()}_{macro}_{case}")
@@ -62,7 +69,7 @@ def build_files(
                 path = f"models/{name}.sql"
                 if path in files:
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
-                files[path] = f"select {{{{ {call} }}}} as result\n"
+                files[path] = model_sql(call, case.output)
                 unit_tests.append(
                     {
                         "name": case.name,

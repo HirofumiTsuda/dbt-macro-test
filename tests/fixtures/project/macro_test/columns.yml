@@ -1,0 +1,22 @@
+macros:
+  - macro: with_alias
+    cases:
+      - name: returns_an_aliased_column
+        given:
+          arguments:
+            x: 1
+        output: columns
+        expect:
+          rows:
+            - {amount: 1}
+  - macro: two_columns
+    cases:
+      - name: returns_two_columns
+        given:
+          arguments:
+            a: 1
+            b: "'x'"
+        output: columns
+        expect:
+          rows:
+            - {first: 1, second: x}

@@ -8,6 +8,7 @@ import yaml
 
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MACRO_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
+_OUTPUTS = ("expression", "columns")
 
 
 class SpecError(Exception):
@@ -19,6 +20,7 @@ class Case:
     name: str
     arguments: dict[str, Any]
     expect_rows: list[dict[str, Any]]
+    output: str = "expression"
 
 
 @dataclass(frozen=True)
@@ -111,10 +113,20 @@ def _parse_macro(entry: Any, path: Path, where: str) -> MacroSpec:
 
 
 def _parse_case(entry: Any, path: Path, where: str) -> Case:
-    body = _mapping(entry, path, where, required=["name", "expect"], optional=["given"])
+    body = _mapping(entry, path, where, required=["name", "expect"], optional=["given", "output"])
     name = body["name"]
     if not isinstance(name, str) or not _IDENTIFIER.match(name):
         raise _fail(path, f"{where}.name", f"{name!r} is not a valid name (letters, digits, _)")
+
+    output = body.get("output", "expression")
+    if output == "query":
+        raise _fail(
+            path,
+            f"{where}.output",
+            "'query' is not supported yet; use one of: " + ", ".join(_OUTPUTS),
+        )
+    if output not in _OUTPUTS:
+        raise _fail(path, f"{where}.output", f"{output!r} is not one of: {', '.join(_OUTPUTS)}")
 
     arguments: dict[str, Any] = {}
     if "given" in body:
@@ -134,4 +146,4 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
     for i, row in enumerate(rows):
         _mapping(row, path, f"{where}.expect.rows[{i}]", any_keys=True)
 
-    return Case(name=name, arguments=arguments, expect_rows=rows)
+    return Case(name=name, arguments=arguments, expect_rows=rows, output=output)
