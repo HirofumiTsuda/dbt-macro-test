@@ -5,7 +5,7 @@ from dbt_macro_test import execute_sql, load_macro
 FIXTURE = Path(__file__).parent / "fixtures" / "macros" / "safe_divide.sql"
 
 
-def test_macro_sql_executes_correctly_against_real_warehouse(sample_adapter_type):
+def test_macro_sql_executes_correctly_against_real_warehouse(sample_adapter_type: str) -> None:
     safe_divide = load_macro(FIXTURE, "safe_divide")
 
     rendered = safe_divide("10", "4").strip()

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from dbt.clients.jinja import MacroGenerator
+from dbt.contracts.graph.manifest import Manifest
 from dbt.node_types import NodeType
 from dbt.parser.macros import Macro
 from dbt_common.clients import jinja as jinja_common
@@ -46,9 +47,13 @@ def load_macro(
         found = [b.block_name for b in blocks]
         raise ValueError(f"macro {name!r} not found in {path} (found: {found})")
 
+    macro_sql = matches[0].full_block
+    if macro_sql is None:
+        raise ValueError(f"macro {name!r} in {path} has no body")
+
     macro = Macro(
         path=str(path),
-        macro_sql=matches[0].full_block,
+        macro_sql=macro_sql,
         original_file_path=str(path),
         package_name="dbt_macro_test",
         resource_type=NodeType.Macro,
@@ -73,9 +78,7 @@ def load_macro_from_manifest(
     try:
         node = manifest["macros"][unique_id]
     except KeyError:
-        raise ValueError(
-            f"macro {unique_id!r} not found in manifest {manifest_path}"
-        ) from None
+        raise ValueError(f"macro {unique_id!r} not found in manifest {manifest_path}") from None
 
     macro = Macro(
         path=node["path"],
@@ -113,7 +116,10 @@ def connect_project(project_dir: str | Path, profiles_dir: str | Path | None = N
     result = dbtRunner().invoke(args)
     if not result.success:
         raise RuntimeError(f"dbt parse failed for {project_dir}: {result.exception}")
-    return result.result.metadata.adapter_type
+    manifest = result.result
+    if not isinstance(manifest, Manifest) or manifest.metadata.adapter_type is None:
+        raise RuntimeError(f"dbt parse of {project_dir} did not report an adapter type")
+    return manifest.metadata.adapter_type
 
 
 def execute_sql(adapter_type: str, sql: str) -> Any:
