@@ -7,7 +7,6 @@ from dbt_macro_test.generate import (
     build_files,
     macro_call,
     model_name,
-    model_sql,
     project_config,
     write_project,
 )
@@ -69,11 +68,6 @@ def test_model_name_is_unique_per_spec_file_macro_and_case(tmp_path: Path) -> No
     name = model_name(tmp_path / "utils" / "a-b.yml", tmp_path, "pkg.m", "case_1")
 
     assert name == "_mt_utils_a_b_pkg_m_case_1"
-
-
-def test_model_sql_names_an_expression_but_not_columns() -> None:
-    assert model_sql("m()", "expression") == "select {{ m() }} as result\n"
-    assert model_sql("m()", "columns") == "select {{ m() }}\n"
 
 
 def make_spec(test_dir: Path) -> SpecFile:

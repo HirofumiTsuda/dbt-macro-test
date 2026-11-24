@@ -6,9 +6,10 @@ from typing import Any
 
 import yaml
 
+from dbt_macro_test.output import Output
+
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MACRO_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
-_OUTPUTS = ("expression", "columns")
 
 
 class SpecError(Exception):
@@ -20,7 +21,7 @@ class Case:
     name: str
     arguments: dict[str, Any]
     expect_rows: list[dict[str, Any]]
-    output: str = "expression"
+    output: Output = Output.EXPRESSION
 
 
 @dataclass(frozen=True)
@@ -118,15 +119,10 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
     if not isinstance(name, str) or not _IDENTIFIER.match(name):
         raise _fail(path, f"{where}.name", f"{name!r} is not a valid name (letters, digits, _)")
 
-    output = body.get("output", "expression")
-    if output == "query":
-        raise _fail(
-            path,
-            f"{where}.output",
-            "'query' is not supported yet; use one of: " + ", ".join(_OUTPUTS),
-        )
-    if output not in _OUTPUTS:
-        raise _fail(path, f"{where}.output", f"{output!r} is not one of: {', '.join(_OUTPUTS)}")
+    try:
+        output = Output.parse(body.get("output", Output.EXPRESSION.label))
+    except ValueError as e:
+        raise _fail(path, f"{where}.output", str(e)) from e
 
     arguments: dict[str, Any] = {}
     if "given" in body:

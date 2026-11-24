@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from dbt_macro_test.output import Output
 from dbt_macro_test.spec import SpecError, find_spec_files, load_spec_file, load_specs
 
 
@@ -50,7 +51,7 @@ def test_output_defaults_to_expression_and_can_be_columns(tmp_path: Path) -> Non
 
     a, b = load_spec_file(write(tmp_path, text)).macros[0].cases
 
-    assert (a.output, b.output) == ("expression", "columns")
+    assert (a.output, b.output) == (Output.EXPRESSION, Output.COLUMNS)
 
 
 def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:
@@ -67,7 +68,7 @@ def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:
         ("{}", "missing required key 'macros'"),
         (
             "macros:\n  - {macro: x, cases: [{name: a, output: query, expect: {rows: []}}]}",
-            "output: 'query' is not supported yet",
+            "'query' is not one of: expression, columns",
         ),
         (
             "macros:\n  - {macro: x, cases: [{name: a, output: nope, expect: {rows: []}}]}",
