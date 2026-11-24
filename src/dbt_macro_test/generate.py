@@ -62,7 +62,7 @@ def build_files(
                 path = f"models/{name}.sql"
                 if path in files:
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
-                files[path] = f"select {{{{ {call} }}}} as result\n"
+                files[path] = case.output.model_sql(call)
                 unit_tests.append(
                     {
                         "name": case.name,

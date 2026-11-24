@@ -6,6 +6,8 @@ from typing import Any
 
 import yaml
 
+from dbt_macro_test.output import Output
+
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MACRO_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
@@ -19,6 +21,7 @@ class Case:
     name: str
     arguments: dict[str, Any]
     expect_rows: list[dict[str, Any]]
+    output: Output = Output.EXPRESSION
 
 
 @dataclass(frozen=True)
@@ -111,10 +114,15 @@ def _parse_macro(entry: Any, path: Path, where: str) -> MacroSpec:
 
 
 def _parse_case(entry: Any, path: Path, where: str) -> Case:
-    body = _mapping(entry, path, where, required=["name", "expect"], optional=["given"])
+    body = _mapping(entry, path, where, required=["name", "expect"], optional=["given", "output"])
     name = body["name"]
     if not isinstance(name, str) or not _IDENTIFIER.match(name):
         raise _fail(path, f"{where}.name", f"{name!r} is not a valid name (letters, digits, _)")
+
+    try:
+        output = Output.parse(body.get("output", Output.EXPRESSION.label))
+    except ValueError as e:
+        raise _fail(path, f"{where}.output", str(e)) from e
 
     arguments: dict[str, Any] = {}
     if "given" in body:
@@ -134,4 +142,4 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
     for i, row in enumerate(rows):
         _mapping(row, path, f"{where}.expect.rows[{i}]", any_keys=True)
 
-    return Case(name=name, arguments=arguments, expect_rows=rows)
+    return Case(name=name, arguments=arguments, expect_rows=rows, output=output)

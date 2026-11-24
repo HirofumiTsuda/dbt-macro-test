@@ -39,10 +39,13 @@ def run(path: Path, profiles_dir: Path | None, target: str | None) -> None:
 
     test_dir = path if path.is_dir() else path.parent
     project_dir = generate_project(root, test_dir, spec_files)
-    passed = run_unit_tests(
+    outcome = run_unit_tests(
         project_dir,
         profiles_dir=profiles_dir,
         target=target,
         install_packages=(root / "packages.yml").is_file(),
     )
-    sys.exit(0 if passed else 1)
+    for model in outcome.errored_models:
+        sql = (project_dir / "models" / f"{model}.sql").read_text().strip()
+        click.echo(f"\nSQL generated for the case that errored ({model}):\n  {sql}", err=True)
+    sys.exit(0 if outcome.passed else 1)

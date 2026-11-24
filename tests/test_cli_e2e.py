@@ -34,6 +34,29 @@ def test_run_without_arguments_uses_macro_test_in_the_current_directory(
     assert result.exit_code == 0, result.output
 
 
+def test_run_passes_for_macros_that_return_columns(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "columns.yml")])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_run_shows_the_generated_sql_when_a_case_errors(project: Path) -> None:
+    (project / "macro_test" / "wrong_output.yml").write_text(
+        "macros:\n"
+        "  - macro: with_alias\n"
+        "    cases:\n"
+        "      - name: forgot_output_columns\n"
+        "        given: {arguments: {x: 1}}\n"
+        "        expect: {rows: [{amount: 1}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "wrong_output.yml")])
+
+    assert result.exit_code == 1
+    assert "SQL generated for the case that errored" in result.output
+    assert "select {{ with_alias(x=1) }} as result" in result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     (project / "macro_test" / "wrong.yml").write_text(
         "macros:\n"

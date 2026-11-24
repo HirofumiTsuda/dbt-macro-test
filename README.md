@@ -37,6 +37,34 @@ macros:
             - {result: null}
 ```
 
+### What the macro returns
+
+By default a macro's output is treated as a single SQL expression, and its
+value is the `result` column. If the macro returns columns of its own (an
+aliased column, or several), say so with `output: columns` and use the aliases
+as the column names in `expect.rows`:
+
+```yaml
+      - name: returns_two_columns       # {% macro two_columns(a, b) %}{{ a }} as first, {{ b }} as second{% endmacro %}
+        given:
+          arguments:
+            a: 1
+            b: "'x'"
+        output: columns
+        expect:
+          rows:
+            - {first: 1, second: x}
+```
+
+`output: query` (a macro that returns a whole SELECT) is not supported yet.
+
+Arguments are passed to the macro as values, so a macro that writes
+`{{ b }}` into SQL writes the value as it is: `x` is a column called `x`, and
+`"'x'"` is the string `'x'`.
+
+If dbt cannot run a case at all (a SQL error, for instance), the SQL the tool
+generated for it is printed after dbt's own output.
+
 Then, from the project root:
 
 ```bash
