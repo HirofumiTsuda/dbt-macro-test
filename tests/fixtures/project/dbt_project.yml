@@ -1,0 +1,9 @@
+name: fixture_project
+version: "1.0.0"
+config-version: 2
+profile: fixture_project
+macro-paths: ["macros"]
+vars:
+  country: JP
+on-run-start:
+  - "select 1"

@@ -1,0 +1,19 @@
+macros:
+  - macro: safe_divide
+    cases:
+      - name: division_by_zero_is_null
+        given:
+          arguments:
+            numerator: 10
+            denominator: 0
+        expect:
+          rows:
+            - {result: null}
+      - name: plain_division
+        given:
+          arguments:
+            numerator: 10
+            denominator: 4
+        expect:
+          rows:
+            - {result: 2.5}

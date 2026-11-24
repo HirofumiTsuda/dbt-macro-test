@@ -1,0 +1,10 @@
+macros:
+  - macro: greeting
+    cases:
+      - name: uses_project_var
+        given:
+          arguments:
+            name: World
+        expect:
+          rows:
+            - {result: "Hello, World! country=JP"}
