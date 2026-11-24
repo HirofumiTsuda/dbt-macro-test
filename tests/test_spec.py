@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from dbt_macro_test.literals import JinjaExpression
 from dbt_macro_test.output import Output
 from dbt_macro_test.spec import SpecError, find_spec_files, load_spec_file, load_specs
 
@@ -52,6 +53,54 @@ def test_output_defaults_to_expression_and_can_be_columns(tmp_path: Path) -> Non
     a, b = load_spec_file(write(tmp_path, text)).macros[0].cases
 
     assert (a.output, b.output) == (Output.EXPRESSION, Output.COLUMNS)
+
+
+def test_arguments_can_be_plain_values_or_typed(tmp_path: Path) -> None:
+    text = (
+        "macros:\n"
+        "  - macro: m\n"
+        "    cases:\n"
+        "      - name: a\n"
+        "        given:\n"
+        "          arguments:\n"
+        "            plain: 1\n"
+        "            a_dict: {k: v}\n"
+        "            as_literal: {type: literal, value: {type: jinja}}\n"
+        "            bare: {type: jinja, value: \"api.Relation.create(schema='s')\"}\n"
+        "            wrapped: {type: jinja, value: \"{{ ref('x') }}\"}\n"
+        "        expect: {rows: []}\n"
+    )
+
+    arguments = load_spec_file(write(tmp_path, text)).macros[0].cases[0].arguments
+
+    assert arguments["plain"] == 1
+    assert arguments["a_dict"] == {"k": "v"}
+    assert arguments["as_literal"] == {"type": "jinja"}
+    assert arguments["bare"] == JinjaExpression("api.Relation.create(schema='s')")
+    assert arguments["wrapped"] == JinjaExpression("ref('x')")
+
+
+@pytest.mark.parametrize(
+    ("argument", "message"),
+    [
+        ("{type: jinja}", "missing required key 'value'"),
+        ("{type: jinja, value: 1}", "must be a string holding a Jinja expression"),
+        ("{type: jinja, value: '{{ }}'}", "is an empty Jinja expression"),
+        ("{type: jinja, value: x, extra: 1}", "unknown key(s): extra"),
+    ],
+)
+def test_a_malformed_typed_argument_is_reported(
+    tmp_path: Path, argument: str, message: str
+) -> None:
+    text = (
+        "macros:\n  - macro: m\n    cases:\n"
+        f"      - {{name: a, given: {{arguments: {{x: {argument}}}}}, expect: {{rows: []}}}}\n"
+    )
+
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, text))
+
+    assert message in str(error.value)
 
 
 def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:

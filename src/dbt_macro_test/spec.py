@@ -6,8 +6,10 @@ from typing import Any
 
 import yaml
 
+from dbt_macro_test.literals import JinjaExpression
 from dbt_macro_test.output import Output
 
+_TYPES = ("literal", "jinja")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MACRO_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
@@ -113,6 +115,24 @@ def _parse_macro(entry: Any, path: Path, where: str) -> MacroSpec:
     return MacroSpec(macro=macro, cases=cases)
 
 
+def _parse_argument(value: Any, path: Path, where: str) -> Any:
+    """A plain value is passed as it is; {type: jinja, value: ...} is an expression."""
+    if not isinstance(value, dict) or value.get("type") not in _TYPES:
+        return value
+    typed = _mapping(value, path, where, required=["type", "value"])
+    if typed["type"] == "literal":
+        return typed["value"]
+    expression = typed["value"]
+    if not isinstance(expression, str):
+        raise _fail(path, f"{where}.value", "must be a string holding a Jinja expression")
+    expression = expression.strip()
+    if expression.startswith("{{") and expression.endswith("}}"):
+        expression = expression[2:-2].strip()
+    if not expression:
+        raise _fail(path, f"{where}.value", "is an empty Jinja expression")
+    return JinjaExpression(expression)
+
+
 def _parse_case(entry: Any, path: Path, where: str) -> Case:
     body = _mapping(entry, path, where, required=["name", "expect"], optional=["given", "output"])
     name = body["name"]
@@ -136,6 +156,10 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
                     raise _fail(
                         path, f"{where}.given.arguments", f"{key!r} is not an argument name"
                     )
+            arguments = {
+                key: _parse_argument(value, path, f"{where}.given.arguments.{key}")
+                for key, value in arguments.items()
+            }
 
     expect = _mapping(body["expect"], path, f"{where}.expect", required=["rows"])
     rows = _list(expect["rows"], path, f"{where}.expect.rows")

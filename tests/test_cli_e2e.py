@@ -57,6 +57,31 @@ def test_run_shows_the_generated_sql_when_a_case_errors(project: Path) -> None:
     assert "select {{ with_alias(x=1) }} as result" in result.output
 
 
+def test_run_reports_a_wrong_argument_name_before_running_dbt(project: Path) -> None:
+    (project / "macro_test" / "typo.yml").write_text(
+        "macros:\n"
+        "  - macro: safe_divide\n"
+        "    cases:\n"
+        "      - name: typo\n"
+        "        given: {arguments: {numeratr: 10, denominator: 4}}\n"
+        "        expect: {rows: [{result: 2.5}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "typo.yml")])
+
+    assert result.exit_code == 1
+    assert "unknown argument 'numeratr'" in result.output
+    assert "the macro takes: numerator, denominator" in result.output
+    assert "missing argument 'numerator'" in result.output
+    assert not (project / "target" / "macro_test").exists()
+
+
+def test_run_passes_defaults_and_jinja_expression_arguments(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "arguments.yml")])
+
+    assert result.exit_code == 0, result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     (project / "macro_test" / "wrong.yml").write_text(
         "macros:\n"

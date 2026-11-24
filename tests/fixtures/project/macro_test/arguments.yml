@@ -1,0 +1,29 @@
+macros:
+  - macro: add
+    cases:
+      - name: omitted_argument_uses_the_macros_default
+        given:
+          arguments:
+            x: 1
+        expect:
+          rows:
+            - {result: 6}
+      - name: given_argument_overrides_the_default
+        given:
+          arguments:
+            x: 1
+            y: 2
+        expect:
+          rows:
+            - {result: 3}
+  - macro: table_name
+    cases:
+      - name: relation_built_with_a_jinja_expression
+        given:
+          arguments:
+            rel:
+              type: jinja
+              value: "{{ api.Relation.create(schema='main', identifier='orders') }}"
+        expect:
+          rows:
+            - {result: orders}

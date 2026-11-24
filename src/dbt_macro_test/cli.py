@@ -2,11 +2,13 @@ import sys
 from pathlib import Path
 
 import click
+from dbt.config.project import load_raw_project
 
 from dbt_macro_test.discovery import ProjectNotFoundError, find_project_root
-from dbt_macro_test.generate import generate_project
+from dbt_macro_test.generate import generate_project, macro_directories
 from dbt_macro_test.runner import run_unit_tests
 from dbt_macro_test.spec import SpecError, load_specs
+from dbt_macro_test.validate import check_arguments
 
 
 @click.group()
@@ -34,11 +36,16 @@ def run(path: Path, profiles_dir: Path | None, target: str | None) -> None:
     except (ProjectNotFoundError, SpecError) as e:
         raise click.ClickException(str(e)) from e
 
+    raw_config = load_raw_project(str(root))
+    problems = check_arguments(spec_files, macro_directories(raw_config, root))
+    if problems:
+        raise click.ClickException("\n".join(problems))
+
     if profiles_dir is None and (root / "profiles.yml").is_file():
         profiles_dir = root
 
     test_dir = path if path.is_dir() else path.parent
-    project_dir = generate_project(root, test_dir, spec_files)
+    project_dir = generate_project(root, test_dir, spec_files, raw_config)
     outcome = run_unit_tests(
         project_dir,
         profiles_dir=profiles_dir,

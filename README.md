@@ -62,6 +62,30 @@ Arguments are passed to the macro as values, so a macro that writes
 `{{ b }}` into SQL writes the value as it is: `x` is a column called `x`, and
 `"'x'"` is the string `'x'`.
 
+### Arguments
+
+Arguments are given by name. Before dbt is run, they are checked against the
+macro's declaration: an unknown name and a missing argument that has no default
+are reported together, with the names the macro takes. An argument left out
+that has a default uses the macro's own default. A macro that reads `kwargs`
+accepts any extra names. Positional and `*args`-style arguments cannot be
+given. Only macros defined in the project's own macro directories are checked;
+a macro from a package is passed to dbt as it is.
+
+A value that is not a plain YAML value, such as a `Relation`, is written as a
+Jinja expression:
+
+```yaml
+        given:
+          arguments:
+            rel:
+              type: jinja
+              value: "{{ api.Relation.create(schema='main', identifier='orders') }}"
+```
+
+`type: literal` marks a value that must be taken literally, for a mapping that
+would otherwise look like a typed argument.
+
 If dbt cannot run a case at all (a SQL error, for instance), the SQL the tool
 generated for it is printed after dbt's own output.
 
