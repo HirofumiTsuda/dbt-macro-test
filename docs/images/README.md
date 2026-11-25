@@ -10,6 +10,13 @@ run fails because the script changes one expected value with `sed`.
 | `demo.sh` | The script that was recorded (it expects the quick-start project in `shop/` next to it) |
 | `demo.cast` | The recording, in asciinema's format; `uvx asciinema play docs/images/demo.cast` replays it |
 | `demo.gif` | `demo.cast` converted to a GIF |
+| `social-preview.png` | The image GitHub shows when the repository is linked (1280x640). It is uploaded by hand: Settings, General, Social preview; GitHub has no API for it |
+| `make_social_preview.py` | Makes `social-preview.png` (`uvx --with pillow python docs/images/make_social_preview.py`) |
+
+`social-preview.png` is not drawn either: the terminal in it is cut out of the last frame of
+`demo.gif` (the error with dbt's diff, and the summary with the exit code, two pieces of the real
+frame, with nothing typed or edited); only the tagline and the install command next to it are text.
+When `demo.gif` is made again, make this image again too.
 
 To make it again, the steps are in the skill `.claude/skills/record-demo/SKILL.md` (for Claude, with what to check
 in the frames). By hand, with the project in `shop/` next to `demo.sh` and `dbt-macro-test` on the `PATH`:
