@@ -4,12 +4,16 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from dbt.config.project import load_raw_project
 
 from dbt_macro_test.literals import to_jinja_literal
 from dbt_macro_test.spec import SpecFile
 
 GENERATED_DIR = Path("target") / "macro_test"
+
+
+def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:
+    """The real project's macro directories, as absolute paths."""
+    return [(root / p).resolve() for p in raw.get("macro-paths", ["macros"])]
 
 
 def project_config(raw: dict[str, Any], root: Path) -> dict[str, Any]:
@@ -21,7 +25,7 @@ def project_config(raw: dict[str, Any], root: Path) -> dict[str, Any]:
     """
     config = dict(raw)
     config["model-paths"] = ["models"]
-    config["macro-paths"] = [str((root / p).resolve()) for p in raw.get("macro-paths", ["macros"])]
+    config["macro-paths"] = [str(p) for p in macro_directories(raw, root)]
     for key in ("seed-paths", "snapshot-paths", "analysis-paths", "test-paths"):
         config[key] = []
     config.pop("on-run-start", None)
@@ -83,11 +87,13 @@ def write_project(files: dict[str, str], out_dir: Path) -> None:
         target.write_text(content)
 
 
-def generate_project(root: Path, test_dir: Path, spec_files: list[SpecFile]) -> Path:
+def generate_project(
+    root: Path, test_dir: Path, spec_files: list[SpecFile], raw_config: dict[str, Any]
+) -> Path:
     """Write the generated project under <root>/target/macro_test and return it."""
     packages = root / "packages.yml"
     files = build_files(
-        load_raw_project(str(root)),
+        raw_config,
         root,
         test_dir.resolve(),
         spec_files,

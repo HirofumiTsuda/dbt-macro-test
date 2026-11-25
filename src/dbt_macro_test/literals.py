@@ -1,10 +1,20 @@
 import json
 import math
+from dataclasses import dataclass
 from typing import Any
+
+
+@dataclass(frozen=True)
+class JinjaExpression:
+    """An argument written as a Jinja expression rather than as a value."""
+
+    expression: str
 
 
 def to_jinja_literal(value: Any) -> str:
     """Render a YAML value as a Jinja literal, for use as a macro argument."""
+    if isinstance(value, JinjaExpression):
+        return value.expression
     if value is None:
         return "none"
     if isinstance(value, bool):

@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from dbt_macro_test.literals import to_jinja_literal
+from dbt_macro_test.literals import JinjaExpression, to_jinja_literal
 
 
 @pytest.mark.parametrize(
@@ -38,3 +38,10 @@ def test_unsupported_type_is_rejected() -> None:
 def test_non_string_mapping_key_is_rejected() -> None:
     with pytest.raises(TypeError, match="not a string"):
         to_jinja_literal({1: "a"})
+
+
+def test_a_jinja_expression_is_passed_through_as_it_is() -> None:
+    assert to_jinja_literal(JinjaExpression("api.Relation.create(schema='s')")) == (
+        "api.Relation.create(schema='s')"
+    )
+    assert to_jinja_literal([JinjaExpression("x"), 1]) == "[x, 1]"
