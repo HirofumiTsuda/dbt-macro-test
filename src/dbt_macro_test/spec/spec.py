@@ -6,11 +6,13 @@ from typing import Any
 
 import yaml
 
+from dbt_macro_test.spec.expectation import Expectation, FixtureRef, InlineRows
 from dbt_macro_test.spec.literals import JinjaExpression
 from dbt_macro_test.spec.output import Output
 
 _TYPES = ("literal", "jinja")
 _OVERRIDE_KINDS = ("macros", "vars", "env_vars")
+_FORMATS = ("dict", "csv", "sql")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MACRO_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
@@ -23,7 +25,7 @@ class SpecError(Exception):
 class Case:
     name: str
     arguments: dict[str, Any]
-    expect_rows: list[dict[str, Any]]
+    expect: Expectation
     output: Output = Output.EXPRESSION
     overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
 
@@ -182,12 +184,39 @@ def _parse_given(value: Any, path: Path, where: str) -> dict[str, Any]:
     }
 
 
-def _parse_expect_rows(value: Any, path: Path, where: str) -> list[dict[str, Any]]:
-    expect = _mapping(value, path, f"{where}.expect", required=["rows"])
-    rows = _list(expect["rows"], path, f"{where}.expect.rows")
-    for i, row in enumerate(rows):
-        _mapping(row, path, f"{where}.expect.rows[{i}]", any_keys=True)
-    return rows
+def _parse_expect(value: Any, path: Path, where: str) -> Expectation:
+    """The rows a case expects: written in the case, or in a fixture file; never both."""
+    here = f"{where}.expect"
+    expect = _mapping(value, path, here, optional=["rows", "format", "fixture"])
+    if ("rows" in expect) == ("fixture" in expect):
+        raise _fail(path, here, "needs exactly one of 'rows' and 'fixture'")
+    if "fixture" in expect:
+        return _parse_fixture(expect, path, here)
+    return _parse_inline_rows(expect, path, here)
+
+
+def _parse_fixture(expect: dict[str, Any], path: Path, here: str) -> FixtureRef:
+    if "format" in expect:
+        raise _fail(path, here, "a fixture says its format by its extension (.csv or .sql)")
+    name = expect["fixture"]
+    if not isinstance(name, str) or not _IDENTIFIER.match(name):
+        raise _fail(path, f"{here}.fixture", f"{name!r} is not a fixture name")
+    return FixtureRef(name)
+
+
+def _parse_inline_rows(expect: dict[str, Any], path: Path, here: str) -> InlineRows:
+    format_ = expect.get("format", "dict")
+    if format_ not in _FORMATS:
+        raise _fail(path, f"{here}.format", f"{format_!r} is not one of: {', '.join(_FORMATS)}")
+    if format_ == "dict":
+        rows = _list(expect["rows"], path, f"{here}.rows")
+        for i, row in enumerate(rows):
+            _mapping(row, path, f"{here}.rows[{i}]", any_keys=True)
+        return InlineRows("dict", rows)
+    text = expect["rows"]
+    if not isinstance(text, str) or not text.strip():
+        raise _fail(path, f"{here}.rows", f"must be text, with format {format_}")
+    return InlineRows(format_, text)
 
 
 def _parse_case(entry: Any, path: Path, where: str) -> Case:
@@ -203,7 +232,5 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         else {}
     )
     arguments = _parse_given(body["given"], path, where) if "given" in body else {}
-    rows = _parse_expect_rows(body["expect"], path, where)
-    return Case(
-        name=name, arguments=arguments, expect_rows=rows, output=output, overrides=overrides
-    )
+    expect = _parse_expect(body["expect"], path, where)
+    return Case(name=name, arguments=arguments, expect=expect, output=output, overrides=overrides)

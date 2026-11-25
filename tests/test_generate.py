@@ -11,7 +11,7 @@ from dbt_macro_test.project import (
     project_config,
     write_project,
 )
-from dbt_macro_test.spec import Case, MacroSpec, SpecFile
+from dbt_macro_test.spec import Case, InlineRows, MacroSpec, SpecFile
 
 RAW: dict[str, Any] = {
     "name": "shop",
@@ -72,7 +72,9 @@ def test_model_name_is_unique_per_spec_file_macro_and_case(tmp_path: Path) -> No
 
 
 def make_spec(test_dir: Path) -> SpecFile:
-    case = Case(name="zero", arguments={"denominator": 0}, expect_rows=[{"result": None}])
+    case = Case(
+        name="zero", arguments={"denominator": 0}, expect=InlineRows("dict", [{"result": None}])
+    )
     return SpecFile(test_dir / "safe.yml", [MacroSpec("safe_divide", [case])])
 
 
@@ -88,7 +90,7 @@ def test_build_files_generates_a_model_and_a_unit_test_per_case(tmp_path: Path) 
                 "name": "zero",
                 "model": "_mt_safe_safe_divide_zero",
                 "given": [],
-                "expect": {"rows": [{"result": None}]},
+                "expect": {"format": "dict", "rows": [{"result": None}]},
             }
         ]
     }
@@ -100,7 +102,7 @@ def test_build_files_emits_overrides_into_the_unit_test_unchanged(tmp_path: Path
         "macros": {"is_running_in_ci": True},
         "vars": {"region": "us"},
     }
-    case = Case(name="c", arguments={}, expect_rows=[], overrides=overrides)
+    case = Case(name="c", arguments={}, expect=InlineRows("dict", []), overrides=overrides)
     spec = SpecFile(tmp_path / "s.yml", [MacroSpec("m", [case])])
 
     files = build_files(RAW, tmp_path, tmp_path, [spec])

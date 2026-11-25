@@ -10,7 +10,9 @@ def write_spec(
     macro: str,
     case: str,
     *,
-    rows: list[dict[str, Any]],
+    rows: list[dict[str, Any]] | str | None = None,
+    expect_format: str | None = None,
+    fixture: str | None = None,
     arguments: dict[str, Any] | None = None,
     output: str | None = None,
     overrides: dict[str, Any] | None = None,
@@ -23,7 +25,14 @@ def write_spec(
         body["output"] = output
     if overrides is not None:
         body["overrides"] = overrides
-    body["expect"] = {"rows": rows}
+    expect: dict[str, Any] = {}
+    if expect_format is not None:
+        expect["format"] = expect_format
+    if fixture is not None:
+        expect["fixture"] = fixture
+    if rows is not None:
+        expect["rows"] = rows
+    body["expect"] = expect
 
     spec = {"macros": [{"macro": macro, "cases": [body]}]}
     path = directory / file_name
