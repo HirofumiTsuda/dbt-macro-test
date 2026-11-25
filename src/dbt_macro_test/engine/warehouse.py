@@ -14,13 +14,13 @@ def connect_project(project_dir: str | Path, profiles_dir: str | Path | None = N
     for asserting a macro's rendered SQL actually computes the right value,
     not just that it renders the expected text.
     """
-    from dbt.cli.main import dbtRunner
+    from dbt_macro_test.engine.runner import invoke_dbt
 
     args = ["parse", "--quiet", "--project-dir", str(project_dir)]
     if profiles_dir is not None:
         args += ["--profiles-dir", str(profiles_dir)]
 
-    result = dbtRunner().invoke(args)
+    result = invoke_dbt(args)
     if not result.success:
         raise RuntimeError(f"dbt parse failed for {project_dir}: {result.exception}")
     manifest = result.result
