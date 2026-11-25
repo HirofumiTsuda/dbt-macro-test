@@ -4,6 +4,14 @@ from pathlib import Path
 from dbt.cli.main import dbtRunner
 
 
+class DbtError(Exception):
+    """dbt itself could not run (a compile error, for instance), as opposed to a test failing."""
+
+    def __init__(self, command: str, reason: object) -> None:
+        super().__init__(f"dbt {command} failed: {reason}")
+        self.command = f"dbt {command}"
+
+
 @dataclass(frozen=True)
 class RunOutcome:
     passed: bool
@@ -31,11 +39,11 @@ def run_unit_tests(
     if install_packages:
         deps = dbtRunner().invoke(["deps", *common])
         if deps.exception is not None:
-            raise RuntimeError(f"dbt deps failed: {deps.exception}")
+            raise DbtError("deps", deps.exception)
 
     result = dbtRunner().invoke(["test", "--select", "test_type:unit", *common])
     if result.exception is not None:
-        raise RuntimeError(f"dbt test failed: {result.exception}")
+        raise DbtError("test", result.exception)
 
     errored = []
     for item in getattr(result.result, "results", []):
