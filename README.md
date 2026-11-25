@@ -205,3 +205,7 @@ Development needs [uv](https://docs.astral.sh/uv/).
 uv sync
 uv run pytest
 ```
+
+## License
+
+[MIT](LICENSE)
