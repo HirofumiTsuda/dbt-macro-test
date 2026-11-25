@@ -103,6 +103,48 @@ def test_a_malformed_typed_argument_is_reported(
     assert message in str(error.value)
 
 
+def test_overrides_default_to_none_and_keep_only_what_is_given(tmp_path: Path) -> None:
+    text = (
+        "macros:\n"
+        "  - macro: m\n"
+        "    cases:\n"
+        "      - {name: a, expect: {rows: []}}\n"
+        "      - name: b\n"
+        "        overrides: {vars: {region: us}, macros: {is_running_in_ci: true}}\n"
+        "        expect: {rows: []}\n"
+    )
+
+    a, b = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert a.overrides == {}
+    assert b.overrides == {"vars": {"region": "us"}, "macros": {"is_running_in_ci": True}}
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        (
+            "{target: {schema: s}}",
+            "cannot override target; dbt's unit tests accept: macros, vars, env_vars",
+        ),
+        ("{vars: {a: 1}, nope: 1, target: 2}", "cannot override nope, target"),
+        ("[vars]", "overrides: must be a mapping"),
+        ("{vars: 1}", "overrides.vars: must be a mapping"),
+        ("{env_vars: [A]}", "overrides.env_vars: must be a mapping"),
+    ],
+)
+def test_invalid_overrides_are_reported(tmp_path: Path, overrides: str, message: str) -> None:
+    text = (
+        "macros:\n  - macro: m\n    cases:\n"
+        f"      - {{name: a, overrides: {overrides}, expect: {{rows: []}}}}\n"
+    )
+
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, text))
+
+    assert message in str(error.value)
+
+
 def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:
     text = "macros:\n  - macro: dbt_utils.star\n    cases:\n      - {name: a, expect: {rows: []}}\n"
 

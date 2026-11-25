@@ -311,6 +311,48 @@ def test_a_failing_case_exits_1_and_the_summary_counts_it(project: Path) -> None
     assert "1 failed, " in result.output
 
 
+def test_run_applies_macro_var_and_env_var_overrides(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "overrides.yml")])
+
+    assert result.exit_code == 0, result.output
+    assert "4 passed" in result.output
+
+
+def test_a_wrong_override_expectation_fails(project: Path) -> None:
+    (project / "macro_test" / "wrong_override.yml").write_text(
+        "macros:\n"
+        "  - macro: schema_for\n"
+        "    cases:\n"
+        "      - name: override_not_expected\n"
+        "        given: {arguments: {name: x}}\n"
+        "        overrides: {macros: {is_running_in_ci: true}}\n"
+        "        expect: {rows: [{result: 'x|eu|dev'}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "wrong_override.yml")])
+
+    assert result.exit_code == 1
+
+
+def test_run_rejects_an_override_dbt_does_not_have(project: Path) -> None:
+    (project / "macro_test" / "target.yml").write_text(
+        "macros:\n"
+        "  - macro: schema_for\n"
+        "    cases:\n"
+        "      - name: with_target\n"
+        "        given: {arguments: {name: x}}\n"
+        "        overrides: {target: {schema: s}}\n"
+        "        expect: {rows: []}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "target.yml")])
+
+    assert result.exit_code == 2
+    assert (
+        "cannot override target; dbt's unit tests accept: macros, vars, env_vars" in result.output
+    )
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     (project / "macro_test" / "wrong.yml").write_text(
         "macros:\n"

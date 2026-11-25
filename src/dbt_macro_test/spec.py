@@ -1,6 +1,6 @@
 import re
 from collections.abc import Collection
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -10,6 +10,7 @@ from dbt_macro_test.literals import JinjaExpression
 from dbt_macro_test.output import Output
 
 _TYPES = ("literal", "jinja")
+_OVERRIDE_KINDS = ("macros", "vars", "env_vars")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MACRO_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
 
@@ -24,6 +25,7 @@ class Case:
     arguments: dict[str, Any]
     expect_rows: list[dict[str, Any]]
     output: Output = Output.EXPRESSION
+    overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -133,8 +135,29 @@ def _parse_argument(value: Any, path: Path, where: str) -> Any:
     return JinjaExpression(expression)
 
 
+def _parse_overrides(value: Any, path: Path, where: str) -> dict[str, dict[str, Any]]:
+    """What dbt's own unit tests accept under `overrides`: macros, vars and env_vars."""
+    if isinstance(value, dict):
+        unknown = sorted(str(k) for k in value if k not in _OVERRIDE_KINDS)
+        if unknown:
+            raise _fail(
+                path,
+                where,
+                f"cannot override {', '.join(unknown)}; "
+                f"dbt's unit tests accept: {', '.join(_OVERRIDE_KINDS)}",
+            )
+    overrides = _mapping(value, path, where, optional=_OVERRIDE_KINDS)
+    return {
+        kind: dict(_mapping(overrides[kind], path, f"{where}.{kind}", any_keys=True))
+        for kind in _OVERRIDE_KINDS
+        if kind in overrides
+    }
+
+
 def _parse_case(entry: Any, path: Path, where: str) -> Case:
-    body = _mapping(entry, path, where, required=["name", "expect"], optional=["given", "output"])
+    body = _mapping(
+        entry, path, where, required=["name", "expect"], optional=["given", "output", "overrides"]
+    )
     name = body["name"]
     if not isinstance(name, str) or not _IDENTIFIER.match(name):
         raise _fail(path, f"{where}.name", f"{name!r} is not a valid name (letters, digits, _)")
@@ -143,6 +166,12 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         output = Output.parse(body.get("output", Output.EXPRESSION.label))
     except ValueError as e:
         raise _fail(path, f"{where}.output", str(e)) from e
+
+    overrides = (
+        _parse_overrides(body["overrides"], path, f"{where}.overrides")
+        if "overrides" in body
+        else {}
+    )
 
     arguments: dict[str, Any] = {}
     if "given" in body:
@@ -166,4 +195,6 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
     for i, row in enumerate(rows):
         _mapping(row, path, f"{where}.expect.rows[{i}]", any_keys=True)
 
-    return Case(name=name, arguments=arguments, expect_rows=rows, output=output)
+    return Case(
+        name=name, arguments=arguments, expect_rows=rows, output=output, overrides=overrides
+    )

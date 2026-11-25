@@ -77,14 +77,12 @@ def build_files(
                 if path in files:
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
                 files[path] = case.output.model_sql(call)
-                unit_tests.append(
-                    {
-                        "name": case.name,
-                        "model": name,
-                        "given": [],
-                        "expect": {"rows": case.expect_rows},
-                    }
-                )
+                unit_test: dict[str, Any] = {"name": case.name, "model": name}
+                if case.overrides:
+                    unit_test["overrides"] = case.overrides
+                unit_test["given"] = []
+                unit_test["expect"] = {"rows": case.expect_rows}
+                unit_tests.append(unit_test)
     files["models/_unit_tests.yml"] = yaml.safe_dump({"unit_tests": unit_tests}, sort_keys=False)
     return files
 

@@ -1,0 +1,46 @@
+macros:
+  - macro: schema_for
+    cases:
+      - name: without_overrides
+        given:
+          arguments:
+            name: x
+        expect:
+          rows:
+            - {result: "x|eu|dev"}
+      - name: macro_override_reaches_the_macro_under_test
+        given:
+          arguments:
+            name: x
+        overrides:
+          macros:
+            is_running_in_ci: true
+        expect:
+          rows:
+            - {result: "pr_x|eu|dev"}
+      - name: var_and_env_var_overrides
+        given:
+          arguments:
+            name: x
+        overrides:
+          vars:
+            region: us
+          env_vars:
+            STAGE: prod
+        expect:
+          rows:
+            - {result: "x|us|prod"}
+      - name: all_three_at_once
+        given:
+          arguments:
+            name: x
+        overrides:
+          macros:
+            is_running_in_ci: true
+          vars:
+            region: us
+          env_vars:
+            STAGE: prod
+        expect:
+          rows:
+            - {result: "pr_x|us|prod"}
