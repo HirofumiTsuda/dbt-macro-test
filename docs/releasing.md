@@ -52,3 +52,4 @@ These are settings of PyPI and GitHub, not of the repository, and are the mainta
 - `twine check --strict` passes, and the wheel holds `py.typed` and `LICENSE`, the sdist `LICENSE`;
 - the wheel and the sdist each install into a new environment, `dbt-macro-test` is the installed
   one (not the checkout), and `dbt-macro-test run` passes on the project in `tests/fixtures/project`.
+
