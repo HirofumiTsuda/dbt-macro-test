@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="780" viewBox="0 0 1600 780" font-family="DejaVu Sans, Verdana, sans-serif">
+  <title>dbt-macro-test: one spec, dbt does the running</title>
+  <desc>The spec and the macro of your dbt project go into dbt-macro-test run, which reads and checks the spec and generates a throwaway project with a model that calls the macro and a native unit test. dbt, in the same process, runs the unit test in your warehouse through your adapter, compares the rows and prints its own diff. The result is PASS or FAIL lines with dbt's diff and an exit code of 0, 1 or 2. The profile, vars, dispatch and packages of your project are carried over to dbt.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="15" markerHeight="15" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1 1.5 L11 6 L1 10.5 Z" fill="#1f2328"/>
+    </marker>
+    <marker id="arrow-soft" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="15" markerHeight="15" markerUnits="userSpaceOnUse" orient="auto">
+      <path d="M1 1.5 L11 6 L1 10.5 Z" fill="#656d76"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="1600" height="780" fill="#ffffff"/>
+
+  <!-- headline -->
+  <text x="40" y="54" font-size="36" font-weight="bold" fill="#1f2328">One spec. dbt does the running.</text>
+
+  <!-- carried over: your project to dbt, along the top -->
+  <path d="M250 130 V106 H1335 V130" fill="none" stroke="#656d76" stroke-width="2.5" stroke-dasharray="10 8" marker-end="url(#arrow-soft)"/>
+  <text x="792" y="96" font-size="18" fill="#656d76" text-anchor="middle">profile, adapter, vars, dispatch and packages are carried over</text>
+
+  <!-- your project -->
+  <rect x="40" y="130" width="420" height="530" rx="26" fill="#ffffff" stroke="#1f2328" stroke-width="3"/>
+  <text x="68" y="184" font-size="26" font-weight="bold" fill="#1f2328">Your dbt project</text>
+
+  <rect x="68" y="214" width="364" height="120" rx="16" fill="#f6f8fa" stroke="#1f2328" stroke-width="2"/>
+  <text x="90" y="258" font-size="18" font-family="DejaVu Sans Mono, monospace" fill="#1f2328">macros/safe_divide.sql</text>
+  <text x="90" y="294" font-size="18" fill="#57606a">the macro</text>
+
+  <rect x="68" y="362" width="364" height="120" rx="16" fill="#fff8c5" stroke="#1f2328" stroke-width="2"/>
+  <text x="90" y="406" font-size="18" font-family="DejaVu Sans Mono, monospace" fill="#1f2328">macro_test/safe_divide.yml</text>
+  <text x="90" y="442" font-size="18" fill="#57606a">the spec: arguments in, rows out</text>
+
+  <rect x="68" y="510" width="364" height="120" rx="16" fill="#f6f8fa" stroke="#1f2328" stroke-width="2"/>
+  <text x="90" y="554" font-size="18" font-family="DejaVu Sans Mono, monospace" fill="#1f2328">profiles.yml, dbt_project.yml</text>
+  <text x="90" y="590" font-size="18" fill="#57606a">vars, dispatch, packages</text>
+
+  <!-- the tool -->
+  <rect x="560" y="130" width="470" height="530" rx="26" fill="#ddf4ff" stroke="#1f2328" stroke-width="3"/>
+  <text x="588" y="184" font-size="26" font-weight="bold" fill="#1f2328">dbt-macro-test run</text>
+
+  <rect x="588" y="214" width="414" height="116" rx="16" fill="#ffffff" stroke="#1f2328" stroke-width="2"/>
+  <text x="610" y="254" font-size="20" font-weight="bold" fill="#1f2328">1  Read the spec</text>
+  <text x="610" y="286" font-size="18" fill="#57606a">check each argument against</text>
+  <text x="610" y="310" font-size="18" fill="#57606a">the macro's declaration</text>
+
+  <rect x="588" y="362" width="414" height="190" rx="16" fill="#ffffff" stroke="#1f2328" stroke-width="2"/>
+  <text x="610" y="402" font-size="20" font-weight="bold" fill="#1f2328">2  Generate a throwaway project</text>
+  <text x="610" y="436" font-size="16" font-family="DejaVu Sans Mono, monospace" fill="#1f2328">select {{ safe_divide(...) }}</text>
+  <text x="610" y="460" font-size="16" font-family="DejaVu Sans Mono, monospace" fill="#1f2328">       as result</text>
+  <text x="610" y="494" font-size="18" fill="#57606a">+ a native dbt unit test</text>
+  <text x="610" y="526" font-size="17" fill="#57606a">in a temporary directory</text>
+
+  <text x="588" y="598" font-size="17" fill="#57606a">A case that expects an error or a</text>
+  <text x="588" y="622" font-size="17" fill="#57606a">warning runs in a dbt run of its own</text>
+
+  <!-- dbt -->
+  <rect x="1110" y="130" width="450" height="400" rx="26" fill="#ffffff" stroke="#1f2328" stroke-width="3"/>
+  <text x="1138" y="184" font-size="26" font-weight="bold" fill="#1f2328">dbt, in the same process</text>
+
+  <rect x="1138" y="214" width="394" height="116" rx="16" fill="#f6f8fa" stroke="#1f2328" stroke-width="2"/>
+  <text x="1160" y="254" font-size="20" font-weight="bold" fill="#1f2328">3  dbt test: the unit test</text>
+  <text x="1160" y="286" font-size="18" fill="#57606a">runs in your warehouse,</text>
+  <text x="1160" y="310" font-size="18" fill="#57606a">through your adapter</text>
+
+  <rect x="1138" y="362" width="394" height="116" rx="16" fill="#f6f8fa" stroke="#1f2328" stroke-width="2"/>
+  <text x="1160" y="402" font-size="20" font-weight="bold" fill="#1f2328">4  Compare the rows</text>
+  <text x="1160" y="434" font-size="18" fill="#57606a">dbt's own comparison,</text>
+  <text x="1160" y="458" font-size="18" fill="#57606a">and dbt's own diff</text>
+
+  <!-- the result -->
+  <rect x="1110" y="568" width="450" height="92" rx="20" fill="#dafbe1" stroke="#1f2328" stroke-width="3"/>
+  <text x="1138" y="608" font-size="20" font-weight="bold" fill="#1f2328">PASS or FAIL, with dbt's diff</text>
+  <text x="1138" y="640" font-size="18" fill="#57606a">exit code 0, 1 or 2</text>
+
+  <!-- arrows -->
+  <path d="M460 272 H588" fill="none" stroke="#1f2328" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M795 330 V362" fill="none" stroke="#1f2328" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M1002 457 H1070 V272 H1138" fill="none" stroke="#1f2328" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M1335 330 V362" fill="none" stroke="#1f2328" stroke-width="3" marker-end="url(#arrow)"/>
+  <path d="M1335 478 V568" fill="none" stroke="#1f2328" stroke-width="3" marker-end="url(#arrow)"/>
+
+  <!-- the point -->
+  <text x="800" y="728" font-size="21" fill="#57606a" text-anchor="middle">Running, comparing and the failure output are dbt's. The tool adds the spec, the generation and the report.</text>
+</svg>

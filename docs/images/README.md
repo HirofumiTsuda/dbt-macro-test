@@ -11,6 +11,8 @@ run fails because the script changes one expected value with `sed`.
 | `demo.cast` | The recording, in asciinema's format; `uvx asciinema play docs/images/demo.cast` replays it |
 | `demo.gif` | `demo.cast` converted to a GIF |
 | `social-preview.png` | The image GitHub shows when the repository is linked (1280x640). It is uploaded by hand: Settings, General, Social preview; GitHub has no API for it |
+| `overview.svg` | The overview figure of the README ("How it works"), as an editable SVG |
+| `overview.png` | `overview.svg` rendered at 2400 px wide, which is what the README shows |
 | `make_social_preview.py` | Makes `social-preview.png` (`uvx --with pillow python docs/images/make_social_preview.py`) |
 
 `social-preview.png` is not drawn either: the terminal in it is cut out of the last frame of
@@ -34,3 +36,16 @@ dbt-duckdb 1.11.0. The times in the output are those of the day it was recorded.
 
 The README refers to the GIF by its address on `main`, since PyPI, which shows the README as the
 page, cannot read an image by a relative path. If the file is renamed or moved, change that address.
+
+`overview.png` is made from `overview.svg` with CairoSVG, from the root of the repository, and
+needs the font DejaVu Sans (and Mono) to look as it does:
+
+```bash
+uvx --with cairosvg python -c "import cairosvg; cairosvg.svg2png(url='docs/images/overview.svg', write_to='docs/images/overview.png', output_width=2400)"
+```
+
+Every box and arrow of the figure is something the code does: the spec and the check of the
+arguments (`spec/`, `engine/validate.py`), the generated project (`project/generate.py`,
+`spec/output.py`), the cases that run alone (`split_isolated` in `spec/select.py`), dbt run
+in the process by `engine/runner.py`, and the report and the exit codes (`cli.py`). When one of
+them changes, change the figure.
