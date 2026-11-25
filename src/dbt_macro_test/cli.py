@@ -16,8 +16,15 @@ from dbt_macro_test.discovery import (
 from dbt_macro_test.generate import carried_over, generate_project, macro_directories
 from dbt_macro_test.packages import installed_packages_dir
 from dbt_macro_test.runner import DbtError, run_unit_tests
+from dbt_macro_test.select import case_ids, select_cases
 from dbt_macro_test.spec import SpecError, load_specs
 from dbt_macro_test.validate import check_arguments
+
+
+class CouldNotRun(click.ClickException):
+    """The tests could not be run at all, as opposed to a case failing (exit code 1)."""
+
+    exit_code = 2
 
 
 @contextmanager
@@ -58,6 +65,21 @@ def main() -> None:
 )
 @click.option("--target", help="The profile target to run against.")
 @click.option(
+    "--select",
+    "selectors",
+    multiple=True,
+    help=(
+        "Run only the cases that match: a macro name, or macro::case. * and ? stand for any "
+        "characters, and the option can be given more than once."
+    ),
+)
+@click.option(
+    "--list",
+    "list_only",
+    is_flag=True,
+    help="Print the cases that would run, as macro::case, and stop.",
+)
+@click.option(
     "--keep-generated",
     is_flag=True,
     help="Keep the generated dbt project (a temporary directory) and print where it is.",
@@ -68,26 +90,45 @@ def run(
     project_dir: Path | None,
     profiles_dir: Path | None,
     target: str | None,
+    selectors: tuple[str, ...],
+    list_only: bool,
     keep_generated: bool,
     verbose: bool,
 ) -> None:
-    """Run the macro tests in PATH: a spec file or a directory (default: macro_test/)."""
+    """Run the macro tests in PATH: a spec file or a directory (default: macro_test/).
+
+    Exit code 0 means every case passed, 1 that a case failed or errored, and 2
+    that the tests could not be run (an invalid spec, a wrong argument, no
+    project, dbt itself failing, or nothing matching --select).
+    """
     try:
         root = resolve_project_root(project_dir, path if path is not None else Path.cwd())
         if path is None:
             path = root / "macro_test"
             if not path.exists():
-                raise click.ClickException(
-                    f"{path} does not exist; put the specs there or give their path"
-                )
+                raise CouldNotRun(f"{path} does not exist; put the specs there or give their path")
         spec_files = load_specs(path)
     except (ProjectNotFoundError, SpecError) as e:
-        raise click.ClickException(str(e)) from e
+        raise CouldNotRun(str(e)) from e
+
+    everything = case_ids(spec_files)
+    spec_files = select_cases(spec_files, selectors)
+    chosen = case_ids(spec_files)
+    if not chosen:
+        raise CouldNotRun(
+            f"no case matches {', '.join(selectors)}; the cases are: {', '.join(everything)}"
+        )
+    if selectors:
+        click.echo(f"Selected {len(chosen)} of {len(everything)} cases.", err=True)
+    if list_only:
+        for identifier in chosen:
+            click.echo(identifier)
+        return
 
     raw_config = load_raw_project(str(root))
     problems = check_arguments(spec_files, macro_directories(raw_config, root))
     if problems:
-        raise click.ClickException("\n".join(problems))
+        raise CouldNotRun("\n".join(problems))
 
     profiles = resolve_profiles_dir(profiles_dir, root, os.environ)
 
@@ -110,10 +151,11 @@ def run(
                 install_packages=(root / "packages.yml").is_file() and packages_dir is None,
             )
         except DbtError as e:
-            raise click.ClickException(f"{e.command} could not run; see dbt's message above") from e
+            raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
         for model in outcome.errored_models:
             sql = (project_dir / "models" / f"{model}.sql").read_text().strip()
             click.echo(f"\nSQL generated for the case that errored ({model}):\n  {sql}", err=True)
+        click.echo(f"\n{outcome.summary()}", err=True)
         if keep_generated:
-            click.echo(f"\nGenerated project kept at {project_dir}", err=True)
+            click.echo(f"Generated project kept at {project_dir}", err=True)
     sys.exit(0 if outcome.passed else 1)

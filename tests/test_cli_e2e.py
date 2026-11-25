@@ -103,14 +103,14 @@ def test_run_says_when_the_default_specs_directory_is_missing(
 
     result = CliRunner().invoke(main, ["run"])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "macro_test does not exist; put the specs there or give their path" in result.output
 
 
 def test_run_says_when_the_given_project_has_no_project_file(tmp_path: Path) -> None:
     result = CliRunner().invoke(main, ["run", "--project-dir", str(tmp_path)])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "no dbt_project.yml in" in result.output
 
 
@@ -127,7 +127,7 @@ def test_the_environment_variable_beats_the_projects_own_profiles_file(
         env={"DBT_PROFILES_DIR": str(empty)},
     )
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "profiles.yml from: DBT_PROFILES_DIR" in result.output
     assert "Error: dbt test could not run" in result.output
 
@@ -204,7 +204,7 @@ def test_run_reports_a_wrong_argument_name_before_running_dbt(project: Path) -> 
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "typo.yml")])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "unknown argument 'numeratr'" in result.output
     assert "the macro takes: numerator, denominator" in result.output
     assert "missing argument 'numerator'" in result.output
@@ -231,10 +231,84 @@ def test_run_shows_a_failure_of_dbt_as_an_error_not_a_traceback(project: Path) -
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "refs.yml")])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert isinstance(result.exception, SystemExit)
     assert "Error: dbt test could not run; see dbt's message above" in result.output
     assert "Traceback" not in result.output
+
+
+def test_select_runs_only_the_matching_cases(project: Path) -> None:
+    result = CliRunner().invoke(
+        main,
+        ["run", "--select", "safe_divide::plain_division", str(project / "macro_test")],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Selected 1 of " in result.output
+    assert "\n1 passed" in result.output
+
+
+def test_select_by_macro_name_and_wildcard(project: Path) -> None:
+    result = CliRunner().invoke(
+        main, ["run", "--select", "safe_*", "--select", "shout", str(project / "macro_test")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Selected 3 of " in result.output
+    assert "\n3 passed" in result.output
+
+
+def test_select_that_matches_nothing_could_not_run_and_lists_the_cases(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", "--select", "nope", str(project / "macro_test")])
+
+    assert result.exit_code == 2
+    assert "no case matches nope" in result.output
+    assert "safe_divide::plain_division" in result.output
+
+
+def test_a_broken_case_outside_the_selection_does_not_run(project: Path) -> None:
+    (project / "macro_test" / "wrong.yml").write_text(
+        "macros:\n"
+        "  - macro: safe_divide\n"
+        "    cases:\n"
+        "      - name: wrong_on_purpose\n"
+        "        given: {arguments: {numerator: 10, denominator: 4}}\n"
+        "        expect: {rows: [{result: 9.9}]}\n"
+    )
+
+    selected = CliRunner().invoke(
+        main, ["run", "--select", "greeting", str(project / "macro_test")]
+    )
+    everything = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+
+    assert selected.exit_code == 0, selected.output
+    assert everything.exit_code == 1
+
+
+def test_list_prints_the_cases_without_running_dbt(project: Path) -> None:
+    result = CliRunner().invoke(
+        main, ["run", "--list", "--select", "shout", str(project / "macro_test")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "shout::from_the_second_macro_path" in result.output
+    assert "Running with dbt" not in result.output
+
+
+def test_a_failing_case_exits_1_and_the_summary_counts_it(project: Path) -> None:
+    (project / "macro_test" / "wrong.yml").write_text(
+        "macros:\n"
+        "  - macro: safe_divide\n"
+        "    cases:\n"
+        "      - name: wrong_on_purpose\n"
+        "        given: {arguments: {numerator: 10, denominator: 4}}\n"
+        "        expect: {rows: [{result: 9.9}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+
+    assert result.exit_code == 1
+    assert "1 failed, " in result.output
 
 
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
@@ -264,7 +338,7 @@ def test_run_reports_an_invalid_spec_without_running_dbt(project: Path) -> None:
 
     result = CliRunner().invoke(main, ["run", str(bad)])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "macros: must be a list" in result.output
     assert not (project / "target" / "macro_test").exists()
 
@@ -275,7 +349,7 @@ def test_run_outside_a_dbt_project_is_an_error(tmp_path: Path) -> None:
 
     result = CliRunner().invoke(main, ["run", str(spec)])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "no dbt_project.yml" in result.output
 
 
@@ -350,5 +424,5 @@ def test_run_stops_when_the_installed_packages_do_not_match_packages_yml(
 
     result = CliRunner().invoke(main, ["run", str(project_with_packages / "macro_test")])
 
-    assert result.exit_code == 1
+    assert result.exit_code == 2
     assert "Error: dbt test could not run; see dbt's message above" in result.output

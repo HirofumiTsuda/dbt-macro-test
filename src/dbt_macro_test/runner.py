@@ -16,6 +16,13 @@ class DbtError(Exception):
 class RunOutcome:
     passed: bool
     errored_models: list[str] = field(default_factory=list)
+    counts: dict[str, int] = field(default_factory=dict)
+
+    def summary(self) -> str:
+        """For example `1 failed, 8 passed`; failures first."""
+        order = [("error", "errored"), ("fail", "failed"), ("pass", "passed")]
+        parts = [f"{self.counts[key]} {word}" for key, word in order if self.counts.get(key)]
+        return ", ".join(parts) if parts else "no cases ran"
 
 
 def run_unit_tests(
@@ -46,9 +53,11 @@ def run_unit_tests(
         raise DbtError("test", result.exception)
 
     errored = []
+    counts: dict[str, int] = {}
     for item in getattr(result.result, "results", []):
-        status = getattr(item.status, "value", item.status)
+        status = str(getattr(item.status, "value", item.status))
+        counts[status] = counts.get(status, 0) + 1
         model = getattr(item.node, "model", None)
         if status == "error" and isinstance(model, str):
             errored.append(model)
-    return RunOutcome(passed=result.success, errored_models=errored)
+    return RunOutcome(passed=result.success, errored_models=errored, counts=counts)

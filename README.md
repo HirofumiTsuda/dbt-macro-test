@@ -98,6 +98,23 @@ dbt-macro-test run --target ci
 dbt-macro-test run --project-dir ../shop      # from anywhere; specs in ../shop/macro_test
 ```
 
+To run part of the suite, give a path to a file or a directory, or select
+cases with `--select`: a macro name, or `macro::case`, where `*` and `?` stand
+for any characters. The option can be given more than once, and the patterns
+are ORed. `--list` prints the cases that would run, as `macro::case`, without
+running dbt.
+
+```bash
+dbt-macro-test run --select safe_divide             # every case of one macro
+dbt-macro-test run --select "safe_*::by_zero"       # a pattern
+dbt-macro-test run --list --select greeting         # only show what would run
+```
+
+The exit code is 0 when every case passed, 1 when a case failed or errored, and
+2 when the tests could not be run at all: an invalid spec, a wrong argument, no
+dbt project, dbt itself failing, or nothing matching `--select`. A line such
+as `1 failed, 8 passed` ends the run.
+
 The project is the nearest directory at or above the specs (or the working
 directory, when no path is given) that has a `dbt_project.yml`, unless
 `--project-dir` names one. Without a path, the specs are taken from
