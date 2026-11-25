@@ -102,6 +102,8 @@ running exactly this, in a new project with a duckdb profile and the tool instal
 
 ## How it works
 
+![One spec, dbt does the running: your macro and spec go into dbt-macro-test run, which checks the arguments and generates a throwaway dbt project; dbt runs the unit test in your warehouse through your adapter, compares the rows and prints its own diff](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/overview.png)
+
 Each case of a spec becomes a throwaway model that calls the macro, and a native dbt unit test of
 that model, in a temporary directory; dbt runs them. Execution, comparison and the output of a
 failure are dbt's own. What the tool adds is the spec format, the generation of the project, a
