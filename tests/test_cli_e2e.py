@@ -404,6 +404,49 @@ def test_a_query_with_a_wrong_row_fails(project: Path) -> None:
     assert "1 failed" in result.output
 
 
+def test_run_passes_for_every_way_of_writing_the_expected_rows(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "formats.yml")])
+
+    assert result.exit_code == 0, result.output
+    assert "5 passed" in result.output
+
+
+def test_a_wrong_composite_value_fails_and_the_diff_shows_the_values(project: Path) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "wrong_composite.yml",
+        "composite_columns",
+        "wrong_list_and_map",
+        output="columns",
+        expect_format="sql",
+        rows="select [1, 2, 4] as l, {'a': 1, 'b': 'x'} as s, map {'k1': 1, 'k2': 9} as m",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output
+
+
+def test_a_fixture_that_is_not_there_could_not_run_and_says_where_it_looked(
+    project: Path,
+) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "missing.yml",
+        "numbers",
+        "needs_a_fixture",
+        output="query",
+        fixture="not_there",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 2
+    assert "no fixture 'not_there'" in result.output
+    assert str(project / "macro_test" / "fixtures") in result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     write_wrong_division(project)
 

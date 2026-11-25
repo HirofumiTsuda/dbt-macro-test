@@ -5,8 +5,9 @@ from typing import Any
 
 import yaml
 
+from dbt_macro_test.project.fixtures import Fixture, find_fixtures
 from dbt_macro_test.project.packages import with_absolute_local_paths
-from dbt_macro_test.spec import SpecFile, to_jinja_literal
+from dbt_macro_test.spec import Case, SpecFile, to_jinja_literal
 
 
 def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:
@@ -15,7 +16,10 @@ def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:
 
 
 def project_config(
-    raw: dict[str, Any], root: Path, packages_dir: Path | None = None
+    raw: dict[str, Any],
+    root: Path,
+    packages_dir: Path | None = None,
+    has_fixtures: bool = False,
 ) -> dict[str, Any]:
     """The generated project's dbt_project.yml, derived from the real project's.
 
@@ -28,8 +32,9 @@ def project_config(
     config = dict(raw)
     config["model-paths"] = ["models"]
     config["macro-paths"] = [str(p) for p in macro_directories(raw, root)]
-    for key in ("seed-paths", "snapshot-paths", "analysis-paths", "test-paths"):
+    for key in ("seed-paths", "snapshot-paths", "analysis-paths"):
         config[key] = []
+    config["test-paths"] = ["tests"] if has_fixtures else []
     config.pop("on-run-start", None)
     config.pop("on-run-end", None)
     if packages_dir is not None:
@@ -49,6 +54,15 @@ def model_name(spec_path: Path, test_dir: Path, macro: str, case: str) -> str:
     return re.sub(r"\W", "_", f"_mt_{relative.as_posix()}_{macro}_{case}")
 
 
+def _expect(case: Case, fixtures: dict[str, Fixture]) -> dict[str, Any]:
+    """The `expect` of the native unit test: the rows with their format, or a fixture."""
+    if case.expect_fixture is not None:
+        return {"format": fixtures[case.expect_fixture].format, "fixture": case.expect_fixture}
+    if case.expect_format == "dict":
+        return {"rows": case.expect_rows}
+    return {"format": case.expect_format, "rows": case.expect_rows}
+
+
 def build_files(
     raw_config: dict[str, Any],
     root: Path,
@@ -56,13 +70,17 @@ def build_files(
     spec_files: list[SpecFile],
     packages_yml: str | None = None,
     packages_dir: Path | None = None,
+    fixtures: dict[str, Fixture] | None = None,
 ) -> dict[str, str]:
     """The generated project, as relative path -> file content."""
+    fixtures = fixtures or {}
     files: dict[str, str] = {
         "dbt_project.yml": yaml.safe_dump(
-            project_config(raw_config, root, packages_dir), sort_keys=False
+            project_config(raw_config, root, packages_dir, bool(fixtures)), sort_keys=False
         )
     }
+    for fixture in fixtures.values():
+        files[f"tests/fixtures/{fixture.file_name}"] = fixture.text
     if packages_yml is not None:
         files["packages.yml"] = with_absolute_local_paths(packages_yml, root)
 
@@ -80,7 +98,7 @@ def build_files(
                 if case.overrides:
                     unit_test["overrides"] = case.overrides
                 unit_test["given"] = []
-                unit_test["expect"] = {"rows": case.expect_rows}
+                unit_test["expect"] = _expect(case, fixtures)
                 unit_tests.append(unit_test)
     files["models/_unit_tests.yml"] = yaml.safe_dump({"unit_tests": unit_tests}, sort_keys=False)
     return files
@@ -129,13 +147,15 @@ def generate_project(
 ) -> Path:
     """Write the generated project into `out_dir` and return it."""
     packages = root / "packages.yml"
+    test_dir = test_dir.resolve()
     files = build_files(
         raw_config,
         root,
-        test_dir.resolve(),
+        test_dir,
         spec_files,
         packages.read_text() if packages.is_file() else None,
         packages_dir,
+        find_fixtures(spec_files, test_dir),
     )
     write_project(files, out_dir)
     return out_dir

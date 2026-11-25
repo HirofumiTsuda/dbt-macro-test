@@ -5,6 +5,7 @@ from dbt_macro_test.project.discovery import (
     resolve_profiles_dir,
     resolve_project_root,
 )
+from dbt_macro_test.project.fixtures import Fixture, FixtureError, find_fixtures
 from dbt_macro_test.project.generate import (
     build_files,
     carried_over,
@@ -18,10 +19,13 @@ from dbt_macro_test.project.generate import (
 from dbt_macro_test.project.packages import installed_packages_dir, with_absolute_local_paths
 
 __all__ = [
+    "Fixture",
+    "FixtureError",
     "ProfilesChoice",
     "ProjectNotFoundError",
     "build_files",
     "carried_over",
+    "find_fixtures",
     "find_project_root",
     "generate_project",
     "installed_packages_dir",

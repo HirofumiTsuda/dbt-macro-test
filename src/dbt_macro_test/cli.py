@@ -16,6 +16,7 @@ from dbt_macro_test.engine import (
     run_unit_tests,
 )
 from dbt_macro_test.project import (
+    FixtureError,
     ProfilesChoice,
     ProjectNotFoundError,
     carried_over,
@@ -122,7 +123,7 @@ def run(
     packages_dir = installed_packages_dir(raw_config, root)
     test_dir = path if path.is_dir() else path.parent
     with _workspace(keep_generated) as out_dir:
-        project = generate_project(root, test_dir, spec_files, raw_config, out_dir, packages_dir)
+        project = _generate(root, test_dir, spec_files, raw_config, out_dir, packages_dir)
         if verbose:
             _say_what_is_carried_over(raw_config, root, packages_dir, profiles)
         install = (root / "packages.yml").is_file() and packages_dir is None
@@ -198,3 +199,17 @@ def _report(outcome: RunOutcome, project: Path, keep_generated: bool) -> None:
     click.echo(f"\n{outcome.summary()}", err=True)
     if keep_generated:
         click.echo(f"Generated project kept at {project}", err=True)
+
+
+def _generate(
+    root: Path,
+    test_dir: Path,
+    spec_files: list[SpecFile],
+    raw_config: dict[str, Any],
+    out_dir: Path,
+    packages_dir: Path | None,
+) -> Path:
+    try:
+        return generate_project(root, test_dir, spec_files, raw_config, out_dir, packages_dir)
+    except FixtureError as e:
+        raise CouldNotRun(str(e)) from e

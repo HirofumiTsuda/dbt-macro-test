@@ -46,6 +46,55 @@ def test_valid_spec_is_loaded(tmp_path: Path) -> None:
     assert no_arguments.expect_rows == []
 
 
+def case_with(expect: str) -> str:
+    return f"macros:\n  - macro: m\n    cases:\n      - {{name: a, expect: {expect}}}\n"
+
+
+def test_expect_defaults_to_rows_as_mappings(tmp_path: Path) -> None:
+    (case,) = load_spec_file(write(tmp_path, case_with("{rows: [{r: 1}]}"))).macros[0].cases
+
+    assert (case.expect_format, case.expect_rows, case.expect_fixture) == ("dict", [{"r": 1}], None)
+
+
+def test_expect_can_be_csv_or_sql_text(tmp_path: Path) -> None:
+    csv_case, sql_case = [
+        load_spec_file(write(tmp_path, case_with(e))).macros[0].cases[0]
+        for e in ('{format: csv, rows: "a,b\\n1,2"}', "{format: sql, rows: 'select 1 as a'}")
+    ]
+
+    assert (csv_case.expect_format, csv_case.expect_rows) == ("csv", "a,b\n1,2")
+    assert (sql_case.expect_format, sql_case.expect_rows) == ("sql", "select 1 as a")
+
+
+def test_expect_can_name_a_fixture(tmp_path: Path) -> None:
+    (case,) = load_spec_file(write(tmp_path, case_with("{fixture: numbers}"))).macros[0].cases
+
+    assert case.expect_fixture == "numbers"
+    assert case.expect_format == "fixture"
+
+
+@pytest.mark.parametrize(
+    ("expect", "message"),
+    [
+        ("{}", "needs exactly one of 'rows' and 'fixture'"),
+        ("{rows: [], fixture: x}", "needs exactly one of 'rows' and 'fixture'"),
+        ("{format: csv, fixture: x}", "a fixture says its format by its extension"),
+        ("{fixture: 'a b'}", "'a b' is not a fixture name"),
+        ("{fixture: 1}", "1 is not a fixture name"),
+        ("{format: json, rows: x}", "'json' is not one of: dict, csv, sql"),
+        ("{format: csv, rows: [{a: 1}]}", "must be text, with format csv"),
+        ("{format: sql, rows: ''}", "must be text, with format sql"),
+        ("{format: dict, rows: 'a,b'}", "expect.rows: must be a list"),
+        ("{rows: [1]}", "expect.rows[0]: must be a mapping"),
+    ],
+)
+def test_invalid_expectations_are_reported(tmp_path: Path, expect: str, message: str) -> None:
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, case_with(expect)))
+
+    assert message in str(error.value)
+
+
 def test_output_can_be_query(tmp_path: Path) -> None:
     text = (
         "macros:\n  - macro: x\n    cases:\n      - {name: a, output: query, expect: {rows: []}}\n"
@@ -200,7 +249,7 @@ def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:
         ),
         (
             "macros:\n  - {macro: x, cases: [{name: a, expect: {}}]}",
-            "missing required key 'rows'",
+            "needs exactly one of 'rows' and 'fixture'",
         ),
         (
             "macros:\n  - {macro: x, cases: [{name: a, expect: {rows: [1]}}]}",

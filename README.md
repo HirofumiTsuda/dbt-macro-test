@@ -37,6 +37,38 @@ macros:
             - {result: null}
 ```
 
+### Writing the expected rows
+
+`expect.rows` is a list of mappings by default, one per row, and a list, a
+struct or a map is written as one would in YAML. Two more ways, with `format`:
+
+```yaml
+        expect:
+          format: sql          # the rows are what this query returns
+          rows: "select [1, 2, 3] as l, {'a': 1, 'b': 'x'} as s, map {'k1': 1, 'k2': 2} as m"
+```
+
+```yaml
+        expect:
+          format: csv          # the first line names the columns
+          rows: |
+            id,name
+            1,a
+            2,b
+```
+
+A long result can live in a file instead: `fixture: numbers` takes
+`macro_test/fixtures/numbers.csv` or `numbers.sql`, and the extension says
+which it is (so `format` is not given with `fixture`). It is an error for the
+file to be missing, or to exist in both formats. A case gives `rows` or a
+`fixture`, never both.
+
+dbt converts the expected values to the types of what the macro returns, so a
+csv cell for a list or a struct is written as the warehouse writes it; a map
+is `{k1=1, k2=2}` on duckdb, which is why `sql` is the easier way to write a
+composite value. When a value differs, the failure shows the two, column by
+column. Rows are compared in any order.
+
 ### What the macro returns
 
 By default a macro's output is treated as a single SQL expression, and its
