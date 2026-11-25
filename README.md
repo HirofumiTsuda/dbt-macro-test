@@ -286,6 +286,7 @@ and later, up to but not including 2.0: dbt's native unit tests, which it is bui
 since 1.8. CI runs the whole suite on the newest dbt-core the lock file holds and on 1.8; 1.9,
 1.10, 1.11 and 1.12 were each run once by hand and passed. The adapter is the one the project
 uses; only duckdb has been tried.
+It runs on Linux and on Windows (the suite is run on both in CI); macOS has not been run.
 Development needs [uv](https://docs.astral.sh/uv/).
 
 ```bash
