@@ -3,6 +3,7 @@
 **Test your dbt macros.**
 
 [![CI](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/dbt-macro-test.svg)](https://pypi.org/project/dbt-macro-test/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![dbt-core 1.8+](https://img.shields.io/badge/dbt--core-1.8%2B-orange.svg)
@@ -23,8 +24,8 @@ so the result, and the diff when it fails, are dbt's.
 - **Made for CI.** Exit code 0, 1 or 2, `--select`, Linux and Windows, dbt-core 1.8 and later, and
   an example for GitHub Actions below.
 
-**Status: not released yet.** The interface may still change, and it is not on PyPI. It has
-been tried on duckdb only (see [What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
+**Status: alpha.** The interface may still change. It has been tried on duckdb only (see
+[What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
 
 This project is independent and is not affiliated with or endorsed by dbt Labs. "dbt" is a
 trademark of dbt Labs, Inc.
@@ -36,11 +37,10 @@ installed in the same environment, with dbt-core (1.8 or later; the tool brings 
 
 ```bash
 pip install dbt-duckdb        # or dbt-snowflake, dbt-bigquery, ... the one your project uses
-pip install "dbt-macro-test @ git+https://github.com/HirofumiTsuda/dbt-macro-test"
+pip install dbt-macro-test
 ```
 
-It is not on PyPI yet, hence the second line. Python 3.11 or later; Linux and Windows are run
-in CI, macOS has not been.
+Python 3.11 or later; Linux and Windows are run in CI, macOS has not been.
 
 **2. Write a test.** In a dbt project, with a macro:
 
@@ -182,7 +182,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install dbt-duckdb "dbt-macro-test @ git+https://github.com/HirofumiTsuda/dbt-macro-test"
+      - run: pip install dbt-duckdb dbt-macro-test
       - run: dbt deps            # leave this out if the project has no packages.yml
       - run: dbt-macro-test run
         env:
