@@ -252,6 +252,10 @@ failure without the workers, use `uv run pytest -n 0 path/to/test.py::test_name`
 suite on Python 3.11 to 3.14, on dbt-core 1.8, and on Windows; dbt-core 1.9, 1.10 and 1.11 were
 each run once by hand.
 
+The dependencies in `uv.lock` and the pinned actions of the workflows are kept up to date by
+Dependabot (`.github/dependabot.yml`): once a week, one pull request for the actions and one for
+the dependencies, which run CI and are merged like any other.
+
 ## License
 
 [MIT](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/LICENSE)
