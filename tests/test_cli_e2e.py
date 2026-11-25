@@ -447,6 +447,60 @@ def test_a_fixture_that_is_not_there_could_not_run_and_says_where_it_looked(
     assert str(project / "macro_test" / "fixtures") in result.output
 
 
+def test_run_passes_for_cases_that_expect_an_error(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "errors.yml")])
+
+    assert result.exit_code == 0, result.output
+    assert "PASS positive::raises_when_not_guarded" in result.output
+    assert "PASS guarded_positive::raises_when_guarded" in result.output
+    assert "PASS bad_cast::the_warehouse_cannot_convert" in result.output
+    assert "4 passed" in result.output
+
+
+def test_a_case_that_raises_does_not_stop_the_others(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+
+    assert result.exit_code == 0, result.output
+    assert "positive::raises_when_not_guarded" in result.output
+    assert "passed" in result.output
+    assert "failed" not in result.output
+
+
+def test_an_error_expected_but_not_raised_fails_and_says_what_happened(project: Path) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "no_error.yml",
+        "positive",
+        "expects_an_error_that_does_not_come",
+        arguments={"x": 5},
+        error="x must not be negative",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "FAIL positive::expects_an_error_that_does_not_come" in result.output
+    assert "there was none" in result.output
+    assert "1 failed" in result.output
+
+
+def test_an_error_with_other_text_fails_and_shows_the_text_it_had(project: Path) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "other_text.yml",
+        "positive",
+        "expects_other_text",
+        arguments={"x": -5},
+        error="something else entirely",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "but the error was:" in result.output
+    assert "x must not be negative, got -5" in result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     write_wrong_division(project)
 

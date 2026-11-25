@@ -6,7 +6,7 @@ from typing import Any, TypedDict
 
 import yaml
 
-from dbt_macro_test.spec.expectation import Expectation, FixtureRef, InlineRows
+from dbt_macro_test.spec.expectation import Expectation, ExpectedError, FixtureRef, InlineRows
 from dbt_macro_test.spec.literals import JinjaExpression
 from dbt_macro_test.spec.output import Output
 
@@ -202,14 +202,26 @@ def _parse_given(value: Any, path: Path, where: str) -> dict[str, Any]:
 
 
 def _parse_expect(value: Any, path: Path, where: str) -> Expectation:
-    """The rows a case expects: written in the case, or in a fixture file; never both."""
+    """What a case expects: rows written in it, rows in a fixture file, or an error; one of them."""
     here = f"{where}.expect"
-    expect = _mapping(value, path, here, optional=["rows", "format", "fixture"])
-    if ("rows" in expect) == ("fixture" in expect):
-        raise _fail(path, here, "needs exactly one of 'rows' and 'fixture'")
+    expect = _mapping(value, path, here, optional=["rows", "format", "fixture", "error"])
+    if sum(key in expect for key in ("rows", "fixture", "error")) != 1:
+        raise _fail(path, here, "needs exactly one of 'rows', 'fixture' and 'error'")
+    if "error" in expect:
+        return _parse_error(expect, path, here)
     if "fixture" in expect:
         return _parse_fixture(expect, path, here)
     return _parse_inline_rows(expect, path, here)
+
+
+def _parse_error(expect: dict[str, Any], path: Path, here: str) -> ExpectedError:
+    if "format" in expect:
+        raise _fail(path, here, "'format' goes with 'rows', not with 'error'")
+    error = _mapping(expect["error"], path, f"{here}.error", required=["message"])
+    message = error["message"]
+    if not isinstance(message, str) or not message.strip():
+        raise _fail(path, f"{here}.error.message", "must be the text the error contains")
+    return ExpectedError(message)
 
 
 def _parse_fixture(expect: dict[str, Any], path: Path, here: str) -> FixtureRef:

@@ -1,7 +1,16 @@
 from pathlib import Path
 
 from dbt_macro_test.engine import RunOutcome
-from dbt_macro_test.spec import Case, InlineRows, MacroSpec, SpecFile, case_ids, select_cases
+from dbt_macro_test.spec import (
+    Case,
+    ExpectedError,
+    InlineRows,
+    MacroSpec,
+    SpecFile,
+    case_ids,
+    select_cases,
+    split_isolated,
+)
 
 
 def case(name: str) -> Case:
@@ -84,6 +93,42 @@ def test_the_original_specs_are_not_modified() -> None:
     select_cases(original, ["greeting"])
 
     assert len(case_ids(original)) == 5
+
+
+def error_case(name: str) -> Case:
+    return Case(name=name, arguments={}, expect=ExpectedError("boom"))
+
+
+def test_cases_that_expect_an_error_are_split_off_one_to_a_spec() -> None:
+    spec = SpecFile(
+        Path("s.yml"),
+        [
+            MacroSpec("m", [case("a"), error_case("raises"), case("b")]),
+            MacroSpec("n", [error_case("x")]),
+        ],
+    )
+
+    together, alone = split_isolated([spec])
+
+    assert case_ids(together) == ["m::a", "m::b"]
+    assert [case_ids([one]) for one in alone] == [["m::raises"], ["n::x"]]
+    assert all(len(one.macros) == 1 and len(one.macros[0].cases) == 1 for one in alone)
+
+
+def test_nothing_is_split_off_when_no_case_expects_an_error() -> None:
+    together, alone = split_isolated(specs())
+
+    assert case_ids(together) == case_ids(specs())
+    assert alone == []
+
+
+def test_a_file_whose_cases_all_expect_an_error_is_not_left_empty_in_the_batch() -> None:
+    spec = SpecFile(Path("s.yml"), [MacroSpec("m", [error_case("a"), error_case("b")])])
+
+    together, alone = split_isolated([spec])
+
+    assert together == []
+    assert len(alone) == 2
 
 
 def test_the_summary_puts_problems_first_and_leaves_out_zeros() -> None:

@@ -11,8 +11,12 @@ import click
 from dbt_macro_test.engine import (
     DbtError,
     RunOutcome,
+    Verdict,
     check_arguments,
+    invoke_unit_tests,
+    judge_error,
     read_project_config,
+    run_deps,
     run_unit_tests,
 )
 from dbt_macro_test.project import (
@@ -26,7 +30,16 @@ from dbt_macro_test.project import (
     resolve_profiles_dir,
     resolve_project_root,
 )
-from dbt_macro_test.spec import SpecError, SpecFile, case_ids, load_specs, select_cases
+from dbt_macro_test.spec import (
+    ExpectedError,
+    SpecError,
+    SpecFile,
+    case_id,
+    case_ids,
+    load_specs,
+    select_cases,
+    split_isolated,
+)
 
 
 class CouldNotRun(click.ClickException):
@@ -122,14 +135,31 @@ def run(
     profiles = resolve_profiles_dir(profiles_dir, root, os.environ)
     packages_dir = installed_packages_dir(raw_config, root)
     test_dir = path if path.is_dir() else path.parent
+    install = (root / "packages.yml").is_file() and packages_dir is None
+    together, alone = split_isolated(spec_files)
     with _workspace(keep_generated) as out_dir:
-        project = _generate(root, test_dir, spec_files, raw_config, out_dir, packages_dir)
         if verbose:
             _say_what_is_carried_over(raw_config, root, packages_dir, profiles)
-        install = (root / "packages.yml").is_file() and packages_dir is None
-        outcome = _run_dbt(project, profiles, target, install)
-        _report(outcome, project, keep_generated)
-    sys.exit(0 if outcome.passed else 1)
+        outcome = RunOutcome(passed=True)
+        project = out_dir
+        if together:
+            _generate(root, test_dir, together, raw_config, project, packages_dir)
+            outcome = _run_dbt(project, profiles, target, install)
+            _report_errors(outcome, project)
+        verdicts = [
+            _run_alone(
+                i,
+                spec,
+                (root, test_dir, raw_config, out_dir, packages_dir),
+                profiles,
+                target,
+                install,
+            )
+            for i, spec in enumerate(alone)
+        ]
+        _report(outcome, verdicts, out_dir if keep_generated else None)
+    passed = outcome.passed and all(v.passed for _, v in verdicts)
+    sys.exit(0 if passed else 1)
 
 
 def _locate(project_dir: Path | None, path: Path | None) -> tuple[Path, Path]:
@@ -192,13 +222,49 @@ def _run_dbt(
         raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
 
 
-def _report(outcome: RunOutcome, project: Path, keep_generated: bool) -> None:
+def _report_errors(outcome: RunOutcome, project: Path) -> None:
+    """The SQL generated for each case that errored without being expected to."""
     for model in outcome.errored_models:
         sql = (project / "models" / f"{model}.sql").read_text().strip()
         click.echo(f"\nSQL generated for the case that errored ({model}):\n  {sql}", err=True)
-    click.echo(f"\n{outcome.summary()}", err=True)
-    if keep_generated:
-        click.echo(f"Generated project kept at {project}", err=True)
+
+
+def _run_alone(
+    index: int,
+    spec: SpecFile,
+    generation: tuple[Path, Path, dict[str, Any], Path, Path | None],
+    profiles: ProfilesChoice,
+    target: str | None,
+    install_packages: bool,
+) -> tuple[str, Verdict]:
+    """Run the one case of `spec` in a dbt run of its own, and judge what came of it."""
+    root, test_dir, raw_config, out_dir, packages_dir = generation
+    (macro_spec,) = spec.macros
+    (case,) = macro_spec.cases
+    assert isinstance(case.expect, ExpectedError)
+    project = out_dir / "cases-run-alone" / str(index)
+    _generate(root, test_dir, [spec], raw_config, project, packages_dir)
+    try:
+        if install_packages:
+            run_deps(project, profiles_dir=profiles.directory, target=target)
+        raw = invoke_unit_tests(project, profiles_dir=profiles.directory, target=target, quiet=True)
+    except DbtError as e:
+        raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
+    return case_id(macro_spec.macro, case.name), judge_error(case.expect.message, raw)
+
+
+def _report(outcome: RunOutcome, verdicts: list[tuple[str, Verdict]], kept: Path | None) -> None:
+    """The cases that ran alone, then the summary of all of them, then where the project is."""
+    for identifier, verdict in verdicts:
+        word = "PASS" if verdict.passed else "FAIL"
+        click.echo(f"{word} {identifier}: {verdict.detail}", err=True)
+    counts = dict(outcome.counts)
+    for _, verdict in verdicts:
+        key = "pass" if verdict.passed else "fail"
+        counts[key] = counts.get(key, 0) + 1
+    click.echo(f"\n{RunOutcome(passed=True, counts=counts).summary()}", err=True)
+    if kept is not None:
+        click.echo(f"Generated project kept at {kept}", err=True)
 
 
 def _generate(

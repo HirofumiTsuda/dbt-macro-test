@@ -1,5 +1,6 @@
 from dbt_macro_test.spec.expectation import (
     Expectation,
+    ExpectedError,
     FixtureExpect,
     FixtureRef,
     InlineExpect,
@@ -8,7 +9,7 @@ from dbt_macro_test.spec.expectation import (
 )
 from dbt_macro_test.spec.literals import JinjaExpression, to_jinja_literal
 from dbt_macro_test.spec.output import Output
-from dbt_macro_test.spec.select import case_id, case_ids, select_cases
+from dbt_macro_test.spec.select import case_id, case_ids, select_cases, split_isolated
 from dbt_macro_test.spec.spec import (
     Case,
     MacroSpec,
@@ -22,6 +23,7 @@ from dbt_macro_test.spec.spec import (
 
 __all__ = [
     "Case",
+    "ExpectedError",
     "Expectation",
     "FixtureExpect",
     "FixtureRef",
@@ -40,5 +42,6 @@ __all__ = [
     "load_spec_file",
     "load_specs",
     "select_cases",
+    "split_isolated",
     "to_jinja_literal",
 ]
