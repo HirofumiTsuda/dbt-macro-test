@@ -1,49 +1,38 @@
 # dbt-macro-test
 
+**Test your dbt macros.**
+
 [![CI](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![dbt-core 1.8+](https://img.shields.io/badge/dbt--core-1.8%2B-orange.svg)
 
-Unit tests for dbt macros. You write what a macro should return for given arguments, in YAML;
-the tool runs it through dbt's own unit tests.
+Call a macro with the arguments you choose, say what it should return, and run it on your machine
+or in CI. A test is a few lines of YAML; the tool turns each case into one of dbt's own unit tests,
+so the result, and the diff when it fails, are dbt's.
 
-```yaml
-# macro_test/safe_divide.yml
-macros:
-  - macro: safe_divide
-    cases:
-      - name: division_by_zero_is_null
-        given:
-          arguments: {numerator: 10, denominator: 0}
-        expect:
-          rows:
-            - {result: null}
-```
+![dbt-macro-test run: two cases pass; after one expected value is changed, one case fails and dbt's diff is shown](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/demo.gif)
+
+- **A macro can be tested like a function.** Arguments in, rows out. dbt's native unit tests cover
+  models only ([dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547)), so there was
+  no way to call a macro with given inputs and assert on what it gives.
+- **dbt does the running.** Your project's profile, adapter, `vars`, `dispatch` and packages are
+  used; the comparison and the output of a failure are dbt's own, not a second implementation.
+- **More than rows.** The expected rows written out, as csv or SQL, or in a file; the error or the
+  warning that a macro raises; `overrides` of macros, `vars` and environment variables for a case.
+- **Made for CI.** Exit code 0, 1 or 2, `--select`, Linux and Windows, dbt-core 1.8 and later, and
+  an example for GitHub Actions below.
 
 **Status: not released yet.** The interface may still change, and it is not on PyPI. It has
-been tried on duckdb only (see [What is not supported](#what-is-not-supported)).
+been tried on duckdb only (see [What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
 
 This project is independent and is not affiliated with or endorsed by dbt Labs. "dbt" is a
 trademark of dbt Labs, Inc.
 
-## Why
+## Quick start
 
-dbt's native unit tests (1.8+) cover models only; there is no way to call a macro with given
-inputs and assert on what it produces
-([dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547)). This tool turns each case
-of a spec into a throwaway model and a native dbt unit test in a temporary directory, and has dbt
-run it. Execution, comparison, and the output when a case fails are dbt's own, not a second
-implementation; what the tool adds is the spec format, the generation, and reading the result
-back. If dbt ships macro unit tests of its own, the specs say what a macro should do and are
-the part worth keeping. [`docs/design.md`](docs/design.md) says how it works and why;
-[`docs/history/design-log.md`](docs/history/design-log.md) has the evidence for the gap and the
-prior art.
-
-## Install
-
-The tool runs dbt **in the same process**, so the adapter of your project has to be installed in
-the same environment, with dbt-core (1.8 or later; the tool brings it):
+**1. Install.** The tool runs dbt **in the same process**, so the adapter of your project has to be
+installed in the same environment, with dbt-core (1.8 or later; the tool brings it):
 
 ```bash
 pip install dbt-duckdb        # or dbt-snowflake, dbt-bigquery, ... the one your project uses
@@ -53,9 +42,7 @@ pip install "dbt-macro-test @ git+https://github.com/HirofumiTsuda/dbt-macro-tes
 It is not on PyPI yet, hence the second line. Python 3.11 or later; Linux and Windows are run
 in CI, macOS has not been.
 
-## A first test
-
-In a dbt project, with a macro:
+**2. Write a test.** In a dbt project, with a macro:
 
 ```sql
 -- macros/safe_divide.sql
@@ -64,7 +51,7 @@ In a dbt project, with a macro:
 {% endmacro %}
 ```
 
-write a spec under `macro_test/`:
+and write a spec for it under `macro_test/`:
 
 ```yaml
 # macro_test/safe_divide.yml
@@ -85,7 +72,7 @@ macros:
             - {result: null}
 ```
 
-and run it from the project:
+**3. Run it**, from the project:
 
 ```console
 $ dbt-macro-test run
@@ -113,12 +100,24 @@ actual differs from expected:
 Both outputs are trimmed (dbt's start-up lines and the timestamps are left out). They are from
 running exactly this, in a new project with a duckdb profile and the tool installed as above.
 
+## How it works
+
+Each case of a spec becomes a throwaway model that calls the macro, and a native dbt unit test of
+that model, in a temporary directory; dbt runs them. Execution, comparison and the output of a
+failure are dbt's own. What the tool adds is the spec format, the generation of the project, a
+check of the arguments before dbt runs, and the report. If dbt ships a way to test macros of its
+own, the specs still say what a macro should do, which is the part worth keeping.
+[`docs/design.md`](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/design.md) says
+how it works and why;
+[`docs/history/design-log.md`](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/history/design-log.md)
+has the evidence for the gap and the prior art.
+
 ## What a spec can say
 
 Arguments are given by name. A case can expect rows (written out, as csv or SQL, or in a file),
 an error, or a warning; it can return a whole `select`, several columns, or a value of a
 composite type; and it can override macros, `vars` and environment variables for that case. All
-of it is in the [spec reference](docs/spec.md).
+of it is in the [spec reference](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md).
 
 ## The command line
 
@@ -234,7 +233,7 @@ things that are not a documented interface: the project file, read with
 `dbt.config.project.load_raw_project`; the function of `dbt_common` that finds the macros in a
 file; and the fields of the results and events of a run. A new dbt-core may change them; the suite
 is run on dbt-core 1.8 and on the newest one in CI to find where they differ. See
-[`docs/design.md`](docs/design.md).
+[`docs/design.md`](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/design.md).
 
 ## Development
 
@@ -253,4 +252,4 @@ each run once by hand.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/LICENSE)
