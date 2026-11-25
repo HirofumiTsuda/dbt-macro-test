@@ -10,13 +10,37 @@ permissions:
   contents: read
 
 # Every job runs on every pull request, because the required checks of `main` are listed by name
-# and a job that did not run would leave its check pending for ever. A job whose pull request
-# changes only documentation decides that in its first step (.github/scripts/ci_scope.sh), and
-# its other steps are skipped, so it still reports success under its own name (#65).
+# and a job that did not run would leave its check pending for ever. The `changes` job says
+# whether a pull request changes more than documentation (the globs are in it, and only there),
+# and the other jobs skip their steps when it does not, so they still report success under their
+# own names (#65). A push to `main`, and any failure of `changes`, run everything.
 
 jobs:
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    outputs:
+      code: ${{ steps.scope.outputs.code }}
+    steps:
+      - if: github.event_name == 'pull_request'
+        id: scope
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          predicate-quantifier: some-with-excludes
+          filters: |
+            code:
+              - '**'
+              - '!docs/**'
+              - '!*.md'
+              - '!LICENSE'
+              - '!.github/PULL_REQUEST_TEMPLATE.md'
+
   check:
     name: check (Python ${{ matrix.python-version }})
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -26,77 +50,65 @@ jobs:
       UV_PYTHON: ${{ matrix.python-version }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
 
-      - id: scope
-        run: bash .github/scripts/ci_scope.sh
-
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv sync --locked
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv run ruff check .
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv run ruff format --check .
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv run mypy
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv run pytest
 
   oldest-dbt:
     # dbt-core 1.8 is the oldest version with native unit tests; the job above runs the
     # newest one (the lock file's), this runs the oldest.
     name: check (dbt-core 1.8)
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     env:
       UV_PYTHON: "3.12"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
 
-      - id: scope
-        run: bash .github/scripts/ci_scope.sh
-
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv sync --locked
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv pip install "dbt-core==1.8.*" "dbt-duckdb==1.8.*"
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv run --no-sync pytest
 
   windows:
     # Python 3.13 only: the suite is the same, and the system is what differs.
     name: check (Windows)
+    needs: changes
+    if: ${{ !cancelled() }}
     runs-on: windows-latest
     env:
       UV_PYTHON: "3.13"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
 
-      - id: scope
-        shell: bash
-        run: bash .github/scripts/ci_scope.sh
-
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv sync --locked
 
-      - if: steps.scope.outputs.code == 'true'
+      - if: needs.changes.outputs.code != 'false'
         run: uv run pytest
