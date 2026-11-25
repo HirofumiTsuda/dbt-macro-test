@@ -73,6 +73,86 @@ def test_run_takes_a_var_from_the_environment(
     assert result.exit_code == 0, result.output
 
 
+def test_run_finds_the_project_from_a_subdirectory(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(project / "macros")
+
+    result = CliRunner().invoke(main, ["run"])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_run_uses_the_project_given_even_when_started_elsewhere(
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    monkeypatch.chdir(elsewhere)
+
+    result = CliRunner().invoke(main, ["run", "--project-dir", str(project)])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_run_says_when_the_default_specs_directory_is_missing(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    shutil.rmtree(project / "macro_test")
+    monkeypatch.chdir(project)
+
+    result = CliRunner().invoke(main, ["run"])
+
+    assert result.exit_code == 1
+    assert "macro_test does not exist; put the specs there or give their path" in result.output
+
+
+def test_run_says_when_the_given_project_has_no_project_file(tmp_path: Path) -> None:
+    result = CliRunner().invoke(main, ["run", "--project-dir", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "no dbt_project.yml in" in result.output
+
+
+def test_the_environment_variable_beats_the_projects_own_profiles_file(
+    project: Path, tmp_path: Path
+) -> None:
+    empty = tmp_path / "empty_profiles"
+    empty.mkdir()
+    (empty / "profiles.yml").write_text("some_other_profile: {}\n")
+
+    result = CliRunner().invoke(
+        main,
+        ["run", "--verbose", str(project / "macro_test" / "greeting.yml")],
+        env={"DBT_PROFILES_DIR": str(empty)},
+    )
+
+    assert result.exit_code == 1
+    assert "profiles.yml from: DBT_PROFILES_DIR" in result.output
+    assert "Error: dbt test could not run" in result.output
+
+
+def test_the_profiles_flag_beats_the_environment_variable(project: Path, tmp_path: Path) -> None:
+    empty = tmp_path / "empty_profiles"
+    empty.mkdir()
+    (empty / "profiles.yml").write_text("some_other_profile: {}\n")
+
+    result = CliRunner().invoke(
+        main,
+        [
+            "run",
+            "--verbose",
+            "--profiles-dir",
+            str(project),
+            str(project / "macro_test" / "greeting.yml"),
+        ],
+        env={"DBT_PROFILES_DIR": str(empty)},
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "profiles.yml from: --profiles-dir" in result.output
+
+
 def test_run_passes_when_every_case_matches(project: Path) -> None:
     result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
 

@@ -1,3 +1,4 @@
+import os
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -7,7 +8,11 @@ from pathlib import Path
 import click
 from dbt.config.project import load_raw_project
 
-from dbt_macro_test.discovery import ProjectNotFoundError, find_project_root
+from dbt_macro_test.discovery import (
+    ProjectNotFoundError,
+    resolve_profiles_dir,
+    resolve_project_root,
+)
 from dbt_macro_test.generate import carried_over, generate_project, macro_directories
 from dbt_macro_test.packages import installed_packages_dir
 from dbt_macro_test.runner import DbtError, run_unit_tests
@@ -35,13 +40,21 @@ def main() -> None:
 @main.command()
 @click.argument(
     "path",
-    default="macro_test",
+    required=False,
     type=click.Path(exists=True, path_type=Path, resolve_path=True),
+)
+@click.option(
+    "--project-dir",
+    type=click.Path(exists=True, file_okay=False, path_type=Path, resolve_path=True),
+    help="The dbt project. Defaults to the nearest one at or above PATH.",
 )
 @click.option(
     "--profiles-dir",
     type=click.Path(exists=True, file_okay=False, path_type=Path),
-    help="Directory with profiles.yml. Defaults to the project root if it has one, else dbt's own.",
+    help=(
+        "Directory with profiles.yml. Defaults to $DBT_PROFILES_DIR, then the project's own "
+        "profiles.yml, then dbt's default location."
+    ),
 )
 @click.option("--target", help="The profile target to run against.")
 @click.option(
@@ -51,15 +64,22 @@ def main() -> None:
 )
 @click.option("--verbose", is_flag=True, help="Say what is carried over from the project.")
 def run(
-    path: Path,
+    path: Path | None,
+    project_dir: Path | None,
     profiles_dir: Path | None,
     target: str | None,
     keep_generated: bool,
     verbose: bool,
 ) -> None:
-    """Run the macro tests in PATH (a spec file or a directory; default: ./macro_test)."""
+    """Run the macro tests in PATH: a spec file or a directory (default: macro_test/)."""
     try:
-        root = find_project_root(path)
+        root = resolve_project_root(project_dir, path if path is not None else Path.cwd())
+        if path is None:
+            path = root / "macro_test"
+            if not path.exists():
+                raise click.ClickException(
+                    f"{path} does not exist; put the specs there or give their path"
+                )
         spec_files = load_specs(path)
     except (ProjectNotFoundError, SpecError) as e:
         raise click.ClickException(str(e)) from e
@@ -69,8 +89,7 @@ def run(
     if problems:
         raise click.ClickException("\n".join(problems))
 
-    if profiles_dir is None and (root / "profiles.yml").is_file():
-        profiles_dir = root
+    profiles = resolve_profiles_dir(profiles_dir, root, os.environ)
 
     test_dir = path if path.is_dir() else path.parent
     packages_dir = installed_packages_dir(raw_config, root)
@@ -82,10 +101,11 @@ def run(
             click.echo("Carried over from the project:", err=True)
             for line in carried_over(raw_config, root, packages_dir):
                 click.echo(f"  {line}", err=True)
+            click.echo(f"  profiles.yml from: {profiles.source}", err=True)
         try:
             outcome = run_unit_tests(
                 project_dir,
-                profiles_dir=profiles_dir,
+                profiles_dir=profiles.directory,
                 target=target,
                 install_packages=(root / "packages.yml").is_file() and packages_dir is None,
             )

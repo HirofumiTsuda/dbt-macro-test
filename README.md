@@ -95,7 +95,18 @@ Then, from the project root:
 dbt-macro-test run                          # everything under ./macro_test
 dbt-macro-test run macro_test/safe_divide.yml
 dbt-macro-test run --target ci
+dbt-macro-test run --project-dir ../shop      # from anywhere; specs in ../shop/macro_test
 ```
+
+The project is the nearest directory at or above the specs (or the working
+directory, when no path is given) that has a `dbt_project.yml`, unless
+`--project-dir` names one. Without a path, the specs are taken from
+`macro_test/` in that project, so the command also works from a subdirectory.
+
+`profiles.yml` is looked for in the order dbt itself uses: `--profiles-dir`,
+then `$DBT_PROFILES_DIR`, then the project's own `profiles.yml` (where dbt would
+look in the working directory), then `~/.dbt`. `--verbose` says which one was
+used.
 
 Each case becomes a throwaway model plus a native dbt unit test, generated
 in a temporary directory and run by dbt itself, so the output and the diff
