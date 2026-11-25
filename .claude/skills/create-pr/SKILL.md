@@ -8,6 +8,17 @@ description: Create (or update) a GitHub pull request for the current branch in 
 Create a pull request for the current branch against `main`, following this
 repo's PR template.
 
+## First: the issue
+
+Every PR is for an issue, so find it before anything else: before starting the
+work, and at the latest before creating the PR. Look with
+`gh issue list --state all --search "<keywords>"`, and in the roadmap issue
+(#17), which lists them. If one matches, use its number. If none does, open
+one first (title and body in English, with a label, as the other issues are)
+and tell the user, rather than creating a PR without one. The number goes in
+the PR title (step 5) and in the `Ref` section (step 4). A PR that does not
+fit any issue usually means the work was not thought through yet.
+
 ## Steps
 
 1. **Name the branch `<type>/<short-slug>`** when creating a new branch for
@@ -34,11 +45,19 @@ repo's PR template.
    the change. Reference any related issue in the `Ref` section (e.g.
    `Closes #26`), rather than encoding it in the branch name.
 
-5. **Language: always write the PR title and body in English**, regardless
+5. **Title: start it with the issue the PR is for, in brackets**, then a
+   short imperative summary: `[#7] Write the expected rows as csv, sql or a
+   fixture file`. The number is the issue the PR closes or, for one step of
+   a larger issue, the issue it belongs to (a step of #38 is `[#38] ...`).
+   Every PR has an issue; if there is none, open one first rather than
+   leaving the prefix off. The branch name still does not carry the number
+   (step 1).
+
+6. **Language: always write the PR title and body in English**, regardless
    of what language the conversation with the user is in. This applies to
    both new PRs and edits to existing ones.
 
-6. **Create or update the PR using `gh api`, not `gh pr create --body` /
+7. **Create or update the PR using `gh api`, not `gh pr create --body` /
    `gh pr edit --body`.** In this repo/account, `gh pr create` and
    `gh pr edit` intermittently fail with:
 
@@ -76,6 +95,15 @@ repo's PR template.
    Get `{owner}/{repo}` from `git remote get-url origin` if not already
    known.
 
-7. **Verify** by reading back the result (`gh pr view <number> --json
+8. **Verify** by reading back the result (`gh pr view <number> --json
    url,title,body -q ...` or the API response) and report the PR URL to the
    user.
+
+## Merging
+
+Merge with a squash, through the REST API (`gh api -X PUT
+repos/{owner}/{repo}/pulls/{number}/merge -f merge_method=squash`), and pass
+the title explicitly: `-f commit_title="<the PR title> (#<PR number>)"`. When a
+PR has one commit GitHub takes that commit's subject, not the PR's title, so
+without this the history would lose the `[#issue]` prefix. The result is, for
+example, `[#7] Write the expected rows as csv, sql or a fixture file (#44)`.
