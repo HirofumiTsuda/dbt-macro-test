@@ -25,8 +25,9 @@ def test_a_problem_names_the_file_macro_and_case(tmp_path: Path) -> None:
 
     problems = check_arguments([spec("add", "typo", {"x": 1, "z": 2})], [directory])
 
+    where = Path("macro_test") / "x.yml"  # written with the separator of the system it runs on
     assert problems == [
-        "macro_test/x.yml: macro 'add', case 'typo': unknown argument 'z' (the macro takes: x, y)"
+        f"{where}: macro 'add', case 'typo': unknown argument 'z' (the macro takes: x, y)"
     ]
 
 
