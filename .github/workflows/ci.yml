@@ -53,7 +53,7 @@ jobs:
       - run: uv run --no-sync pytest
 
   windows:
-    # Not a required check yet: see what it shows first (#54).
+    # Python 3.13 only: the suite is the same, and the system is what differs.
     name: check (Windows)
     runs-on: windows-latest
     env:
