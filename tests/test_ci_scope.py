@@ -1,13 +1,18 @@
 import os
-import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
 SCRIPT = Path(__file__).parent.parent / ".github" / "scripts" / "ci_scope.sh"
 
-pytestmark = pytest.mark.skipif(shutil.which("bash") is None, reason="needs bash")
+# The rule is the same everywhere, and the script runs in CI under `shell: bash`, which is Git Bash
+# on Windows; the `bash` a test finds there may be another one (WSL's), so the rule is tested on
+# the systems where `bash` is bash.
+pytestmark = pytest.mark.skipif(
+    sys.platform == "win32", reason="the rule is tested where bash is bash"
+)
 
 
 def git(directory: Path, *args: str) -> None:
@@ -47,9 +52,10 @@ def decision(directory: Path, event: str = "pull_request") -> str:
         "GITHUB_EVENT_NAME": event,
         "GITHUB_OUTPUT": str(output),
     }
-    subprocess.run(
-        ["bash", str(SCRIPT)], cwd=directory, env=environment, check=True, capture_output=True
+    ran = subprocess.run(
+        ["bash", str(SCRIPT)], cwd=directory, env=environment, capture_output=True, text=True
     )
+    assert ran.returncode == 0, ran.stderr
     return output.read_text().strip()
 
 
