@@ -94,6 +94,32 @@ runs in a dbt run of its own, and the others are not affected; the cost is a dbt
 for each such case. `--verbose` and the summary count them with the rest, and dbt's own
 output for them is not shown, since the error is what the case is for.
 
+### Expecting a warning
+
+A macro that gives a warning (`exceptions.warn(...)`) is tested for it next to what it
+returns, since it still returns something:
+
+```yaml
+      - name: an_old_name_is_still_accepted_with_a_warning
+        given:
+          arguments:
+            x: 7
+        expect:
+          rows:
+            - {result: 7}
+          warning:
+            message: "careful: 7"      # a warning whose text contains this
+```
+
+The case passes when the rows match and a warning that contains the message was given
+while it ran; it fails, saying why, when the rows do not match, when no warning was
+given, or when the warnings that were given say something else (they are listed). `warning`
+goes with `rows` or a `fixture`, not with `error`.
+
+dbt reports a warning as an event with no case attached, so a case that expects a warning
+runs in a dbt run of its own, like a case that expects an error, and the warnings it
+gives are its own. The same warning, which dbt gives more than once, counts once.
+
 ### What the macro returns
 
 By default a macro's output is treated as a single SQL expression, and its

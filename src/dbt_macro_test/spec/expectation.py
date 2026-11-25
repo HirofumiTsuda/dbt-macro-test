@@ -78,4 +78,15 @@ class ExpectedError:
         return InlineExpect(format="dict", rows=[])
 
 
+@dataclass(frozen=True)
+class ExpectedWarning:
+    """A warning whose text contains `message` is given while the case runs.
+
+    It comes with rows (written out or in a fixture), which must match as well: the case runs,
+    gives its warning and returns what it returns.
+    """
+
+    message: str
+
+
 Expectation = InlineRows | FixtureRef | ExpectedError

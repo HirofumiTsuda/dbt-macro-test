@@ -511,6 +511,94 @@ def test_an_error_with_other_text_fails_and_shows_the_text_it_had(project: Path)
     assert "x must not be negative, got -5" in result.output
 
 
+def test_run_passes_for_a_case_that_gives_the_expected_warning(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "warnings.yml")])
+
+    assert result.exit_code == 0, result.output
+    assert "PASS careful::warns_and_returns_the_value: the warning contains 'careful: 7'" in (
+        result.output
+    )
+    assert "2 passed" in result.output
+
+
+def test_a_warning_that_does_not_come_fails_and_says_so(project: Path) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "no_warning.yml",
+        "fine",
+        "expects_a_warning_that_does_not_come",
+        arguments={"x": 1},
+        rows=[{"result": 1}],
+        warning="careful",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "FAIL fine::expects_a_warning_that_does_not_come" in result.output
+    assert "but there was none" in result.output
+
+
+def test_a_warning_with_other_text_fails_and_lists_what_was_given(project: Path) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "other_warning.yml",
+        "careful",
+        "expects_other_text",
+        arguments={"x": 7},
+        rows=[{"result": 7}],
+        warning="something else entirely",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "but the warnings were: careful: 7" in result.output
+
+
+def test_a_warning_does_not_excuse_rows_that_are_wrong(project: Path) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "wrong_rows_right_warning.yml",
+        "careful",
+        "right_warning_wrong_rows",
+        arguments={"x": 7},
+        rows=[{"result": 999}],
+        warning="careful: 7",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "the case did not pass (fail)" in result.output
+
+
+def test_a_warning_of_one_case_is_not_taken_for_the_warning_of_another(project: Path) -> None:
+    write_spec(
+        project / "macro_test",
+        "two_warning_cases.yml",
+        "careful",
+        "warns_about_seven",
+        arguments={"x": 7},
+        rows=[{"result": 7}],
+        warning="careful: 7",
+    )
+    spec = write_spec(
+        project / "macro_test",
+        "other_case.yml",
+        "careful",
+        "expects_the_warning_of_another_value",
+        arguments={"x": 1},
+        rows=[{"result": 1}],
+        warning="careful: 7",
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "but the warnings were: careful: 1" in result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     spec = write_wrong_division(project)
 

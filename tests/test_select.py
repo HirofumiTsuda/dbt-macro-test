@@ -4,6 +4,7 @@ from dbt_macro_test.engine import RunOutcome
 from dbt_macro_test.spec import (
     Case,
     ExpectedError,
+    ExpectedWarning,
     InlineRows,
     MacroSpec,
     SpecFile,
@@ -113,6 +114,21 @@ def test_cases_that_expect_an_error_are_split_off_one_to_a_spec() -> None:
     assert case_ids(together) == ["m::a", "m::b"]
     assert [case_ids([one]) for one in alone] == [["m::raises"], ["n::x"]]
     assert all(len(one.macros) == 1 and len(one.macros[0].cases) == 1 for one in alone)
+
+
+def test_a_case_that_expects_a_warning_runs_alone_too() -> None:
+    warned = Case(
+        name="warns",
+        arguments={},
+        expect=InlineRows("dict", []),
+        warning=ExpectedWarning("careful"),
+    )
+    spec = SpecFile(Path("s.yml"), [MacroSpec("m", [case("a"), warned])])
+
+    together, alone = split_isolated([spec])
+
+    assert case_ids(together) == ["m::a"]
+    assert [case_ids([one]) for one in alone] == [["m::warns"]]
 
 
 def test_nothing_is_split_off_when_no_case_expects_an_error() -> None:

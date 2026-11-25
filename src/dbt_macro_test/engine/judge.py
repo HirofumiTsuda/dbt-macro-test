@@ -41,3 +41,25 @@ def judge_error(expected: str, raw: RawRun) -> Verdict:
         False,
         f"expected an error containing {expected!r}, but the error was: {error_text(errors[0])}",
     )
+
+
+def judge_warning(expected: str, raw: RawRun) -> Verdict:
+    """Whether a run of one case gave a warning that contains `expected`, and the case passed.
+
+    The warning comes with rows that must match as well, so a case that did not pass is a failure
+    whatever it warned, and the reason is said first.
+    """
+    problems = errors_in(raw)
+    if problems:
+        return Verdict(False, f"the case ended in an error: {error_text(problems[0])}")
+    not_passed = [case for case in raw.results if case.status != "pass"]
+    if not_passed:
+        return Verdict(False, f"the warning aside, the case did not pass ({not_passed[0].status})")
+    if any(expected in warning for warning in raw.warnings):
+        return Verdict(True, f"the warning contains {expected!r}")
+    if not raw.warnings:
+        return Verdict(False, f"expected a warning containing {expected!r}, but there was none")
+    given = " | ".join(raw.warnings)
+    return Verdict(
+        False, f"expected a warning containing {expected!r}, but the warnings were: {given}"
+    )

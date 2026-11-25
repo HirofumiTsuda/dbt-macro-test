@@ -1,5 +1,11 @@
 from dbt_macro_test.engine.config import read_project_config
-from dbt_macro_test.engine.judge import Verdict, error_text, errors_in, judge_error
+from dbt_macro_test.engine.judge import (
+    Verdict,
+    error_text,
+    errors_in,
+    judge_error,
+    judge_warning,
+)
 from dbt_macro_test.engine.macros import load_macro, load_macro_from_manifest
 from dbt_macro_test.engine.runner import (
     CaseResult,
@@ -34,6 +40,7 @@ __all__ = [
     "find_signatures",
     "invoke_unit_tests",
     "judge_error",
+    "judge_warning",
     "load_macro",
     "load_macro_from_manifest",
     "problems_with",

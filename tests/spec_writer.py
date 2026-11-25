@@ -14,6 +14,7 @@ def write_spec(
     expect_format: str | None = None,
     fixture: str | None = None,
     error: str | None = None,
+    warning: str | None = None,
     arguments: dict[str, Any] | None = None,
     output: str | None = None,
     overrides: dict[str, Any] | None = None,
@@ -35,6 +36,8 @@ def write_spec(
         expect["rows"] = rows
     if error is not None:
         expect["error"] = {"message": error}
+    if warning is not None:
+        expect["warning"] = {"message": warning}
     body["expect"] = expect
 
     spec = {"macros": [{"macro": macro, "cases": [body]}]}
