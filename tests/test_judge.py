@@ -1,4 +1,4 @@
-from dbt_macro_test.engine import CaseResult, RawRun, error_text, judge_error
+from dbt_macro_test.engine import CaseResult, RawRun, error_text, judge_error, judge_warning
 
 
 def run(*results: CaseResult, exception: str | None = None) -> RawRun:
@@ -71,3 +71,58 @@ def test_a_case_that_passed_next_to_one_that_errored_does_not_hide_the_error() -
     raw = run(CaseResult("a", "pass", ""), CaseResult("b", "error", "Runtime Error\n  boom"))
 
     assert judge_error("boom", raw).passed
+
+
+def given(*warnings: str, status: str = "pass") -> RawRun:
+    return RawRun(
+        success=status == "pass",
+        exception=None,
+        results=[CaseResult("m", status, "")],
+        warnings=list(warnings),
+    )
+
+
+def test_a_warning_that_contains_the_text_passes() -> None:
+    verdict = judge_warning("careful", given("careful: 7"))
+
+    assert verdict.passed
+    assert verdict.detail == "the warning contains 'careful'"
+
+
+def test_any_of_the_warnings_may_be_the_one() -> None:
+    assert judge_warning("second", given("first one", "the second one")).passed
+
+
+def test_no_warning_fails_and_says_so() -> None:
+    verdict = judge_warning("careful", given())
+
+    assert not verdict.passed
+    assert verdict.detail == "expected a warning containing 'careful', but there was none"
+
+
+def test_other_warnings_fail_and_are_listed() -> None:
+    verdict = judge_warning("careful", given("one thing", "another thing"))
+
+    assert not verdict.passed
+    assert "but the warnings were: one thing | another thing" in verdict.detail
+
+
+def test_a_case_whose_rows_do_not_match_fails_whatever_it_warned() -> None:
+    verdict = judge_warning("careful", given("careful: 7", status="fail"))
+
+    assert not verdict.passed
+    assert "the case did not pass (fail)" in verdict.detail
+
+
+def test_a_case_that_ended_in_an_error_fails_and_shows_the_error() -> None:
+    raw = RawRun(
+        success=False,
+        exception=None,
+        results=[CaseResult("m", "error", "Compilation Error in unit_test c\n  boom")],
+        warnings=["careful: 7"],
+    )
+
+    verdict = judge_warning("careful", raw)
+
+    assert not verdict.passed
+    assert verdict.detail == "the case ended in an error: boom"

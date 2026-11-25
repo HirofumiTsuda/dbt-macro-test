@@ -1,7 +1,11 @@
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from dbt.cli.main import dbtRunner
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
 
 class DbtError(Exception):
@@ -39,12 +43,14 @@ class RawRun:
     """What one `dbt test` came to, as dbt reported it, with nothing judged.
 
     `exception` is set when dbt stopped altogether, before or while running the cases (an error
-    raised while the project is parsed, for instance); it is the text of the error.
+    raised while the project is parsed, for instance); it is the text of the error. `warnings` are
+    the warnings dbt gave, each once and in the order they came.
     """
 
     success: bool
     exception: str | None
     results: list[CaseResult]
+    warnings: list[str] = field(default_factory=list)
 
 
 def _common_args(project_dir: Path, profiles_dir: Path | None, target: str | None) -> list[str]:
@@ -81,14 +87,22 @@ def invoke_unit_tests(
     args = ["test", "--select", "test_type:unit", *_common_args(project_dir, profiles_dir, target)]
     if quiet:
         args += ["--log-level", "none"]
-    result = dbtRunner().invoke(args)
+    warnings: list[str] = []
+
+    def collect(event: Any) -> None:
+        if event.info.level == "warn":
+            text = _ANSI.sub("", event.info.msg).removeprefix("[WARNING]: ").strip()
+            if text not in warnings:
+                warnings.append(text)
+
+    result = dbtRunner(callbacks=[collect]).invoke(args)
     results = []
     for item in getattr(result.result, "results", []):
         status = str(getattr(item.status, "value", item.status))
         model = getattr(item.node, "model", None)
         results.append(CaseResult(str(model), status, str(item.message or "")))
     exception = None if result.exception is None else str(result.exception)
-    return RawRun(success=result.success, exception=exception, results=results)
+    return RawRun(success=result.success, exception=exception, results=results, warnings=warnings)
 
 
 def run_unit_tests(

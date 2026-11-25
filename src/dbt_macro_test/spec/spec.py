@@ -6,7 +6,13 @@ from typing import Any, TypedDict
 
 import yaml
 
-from dbt_macro_test.spec.expectation import Expectation, ExpectedError, FixtureRef, InlineRows
+from dbt_macro_test.spec.expectation import (
+    Expectation,
+    ExpectedError,
+    ExpectedWarning,
+    FixtureRef,
+    InlineRows,
+)
 from dbt_macro_test.spec.literals import JinjaExpression
 from dbt_macro_test.spec.output import Output
 
@@ -38,6 +44,13 @@ class Case:
     expect: Expectation
     output: Output = Output.EXPRESSION
     overrides: Overrides = field(default_factory=lambda: Overrides())
+    warning: ExpectedWarning | None = None
+
+    @property
+    def isolated(self) -> bool:
+        """Whether the case runs on its own: it expects an error, or a warning that has to be
+        told apart from the warnings of the other cases."""
+        return self.expect.isolated or self.warning is not None
 
 
 @dataclass(frozen=True)
@@ -204,7 +217,7 @@ def _parse_given(value: Any, path: Path, where: str) -> dict[str, Any]:
 def _parse_expect(value: Any, path: Path, where: str) -> Expectation:
     """What a case expects: rows written in it, rows in a fixture file, or an error; one of them."""
     here = f"{where}.expect"
-    expect = _mapping(value, path, here, optional=["rows", "format", "fixture", "error"])
+    expect = _mapping(value, path, here, optional=["rows", "format", "fixture", "error", "warning"])
     if sum(key in expect for key in ("rows", "fixture", "error")) != 1:
         raise _fail(path, here, "needs exactly one of 'rows', 'fixture' and 'error'")
     if "error" in expect:
@@ -212,6 +225,21 @@ def _parse_expect(value: Any, path: Path, where: str) -> Expectation:
     if "fixture" in expect:
         return _parse_fixture(expect, path, here)
     return _parse_inline_rows(expect, path, here)
+
+
+def _parse_warning(value: Any, path: Path, where: str) -> ExpectedWarning | None:
+    """The warning a case expects with its rows, if it expects one."""
+    here = f"{where}.expect"
+    expect = _mapping(value, path, here, optional=["rows", "format", "fixture", "error", "warning"])
+    if "warning" not in expect:
+        return None
+    if "error" in expect:
+        raise _fail(path, here, "a case that ends in an error cannot also expect a warning")
+    warning = _mapping(expect["warning"], path, f"{here}.warning", required=["message"])
+    message = warning["message"]
+    if not isinstance(message, str) or not message.strip():
+        raise _fail(path, f"{here}.warning.message", "must be the text the warning contains")
+    return ExpectedWarning(message)
 
 
 def _parse_error(expect: dict[str, Any], path: Path, here: str) -> ExpectedError:
@@ -262,4 +290,12 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
     )
     arguments = _parse_given(body["given"], path, where) if "given" in body else {}
     expect = _parse_expect(body["expect"], path, where)
-    return Case(name=name, arguments=arguments, expect=expect, output=output, overrides=overrides)
+    warning = _parse_warning(body["expect"], path, where)
+    return Case(
+        name=name,
+        arguments=arguments,
+        expect=expect,
+        output=output,
+        overrides=overrides,
+        warning=warning,
+    )

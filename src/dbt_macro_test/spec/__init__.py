@@ -1,6 +1,7 @@
 from dbt_macro_test.spec.expectation import (
     Expectation,
     ExpectedError,
+    ExpectedWarning,
     FixtureExpect,
     FixtureRef,
     InlineExpect,
@@ -24,6 +25,7 @@ from dbt_macro_test.spec.spec import (
 __all__ = [
     "Case",
     "ExpectedError",
+    "ExpectedWarning",
     "Expectation",
     "FixtureExpect",
     "FixtureRef",

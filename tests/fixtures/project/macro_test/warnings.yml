@@ -1,0 +1,21 @@
+macros:
+  - macro: careful
+    cases:
+      - name: warns_and_returns_the_value
+        given:
+          arguments:
+            x: 7
+        expect:
+          rows:
+            - {result: 7}
+          warning:
+            message: "careful: 7"
+  - macro: fine
+    cases:
+      - name: gives_no_warning
+        given:
+          arguments:
+            x: 1
+        expect:
+          rows:
+            - {result: 1}

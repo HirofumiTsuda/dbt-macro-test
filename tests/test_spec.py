@@ -4,6 +4,7 @@ import pytest
 
 from dbt_macro_test.spec import (
     ExpectedError,
+    ExpectedWarning,
     FixtureRef,
     InlineRows,
     JinjaExpression,
@@ -128,6 +129,59 @@ def test_only_a_case_that_expects_an_error_runs_alone(tmp_path: Path) -> None:
     ],
 )
 def test_invalid_error_expectations_are_reported(tmp_path: Path, expect: str, message: str) -> None:
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, case_with(expect)))
+
+    assert message in str(error.value)
+
+
+def test_expect_can_add_a_warning_to_rows(tmp_path: Path) -> None:
+    text = case_with("{rows: [{r: 1}], warning: {message: careful}}")
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert case.expect == InlineRows("dict", [{"r": 1}])
+    assert case.warning == ExpectedWarning("careful")
+    assert case.isolated is True
+
+
+def test_expect_can_add_a_warning_to_a_fixture(tmp_path: Path) -> None:
+    text = case_with("{fixture: numbers, warning: {message: careful}}")
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert case.expect == FixtureRef("numbers")
+    assert case.warning == ExpectedWarning("careful")
+
+
+def test_a_case_without_a_warning_runs_with_the_others_unless_it_expects_an_error(
+    tmp_path: Path,
+) -> None:
+    rows = load_spec_file(write(tmp_path, case_with("{rows: []}"))).macros[0].cases[0]
+    error = load_spec_file(write(tmp_path, case_with("{error: {message: x}}"))).macros[0].cases[0]
+
+    assert (rows.warning, rows.isolated) == (None, False)
+    assert (error.warning, error.isolated) == (None, True)
+
+
+@pytest.mark.parametrize(
+    ("expect", "message"),
+    [
+        ("{warning: {message: x}}", "needs exactly one of 'rows', 'fixture' and 'error'"),
+        ("{rows: [], warning: {}}", "missing required key 'message'"),
+        ("{rows: [], warning: {message: ''}}", "must be the text the warning contains"),
+        ("{rows: [], warning: {message: 1}}", "must be the text the warning contains"),
+        ("{rows: [], warning: {message: x, extra: 1}}", "unknown key(s): extra"),
+        ("{rows: [], warning: careful}", "expect.warning: must be a mapping"),
+        (
+            "{error: {message: x}, warning: {message: y}}",
+            "a case that ends in an error cannot also expect a warning",
+        ),
+    ],
+)
+def test_invalid_warning_expectations_are_reported(
+    tmp_path: Path, expect: str, message: str
+) -> None:
     with pytest.raises(SpecError) as error:
         load_spec_file(write(tmp_path, case_with(expect)))
 

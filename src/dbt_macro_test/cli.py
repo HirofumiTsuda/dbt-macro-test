@@ -10,11 +10,13 @@ import click
 
 from dbt_macro_test.engine import (
     DbtError,
+    RawRun,
     RunOutcome,
     Verdict,
     check_arguments,
     invoke_unit_tests,
     judge_error,
+    judge_warning,
     read_project_config,
     run_deps,
     run_unit_tests,
@@ -31,6 +33,7 @@ from dbt_macro_test.project import (
     resolve_project_root,
 )
 from dbt_macro_test.spec import (
+    Case,
     ExpectedError,
     SpecError,
     SpecFile,
@@ -229,6 +232,14 @@ def _report_errors(outcome: RunOutcome, project: Path) -> None:
         click.echo(f"\nSQL generated for the case that errored ({model}):\n  {sql}", err=True)
 
 
+def _judge(case: Case, raw: RawRun) -> Verdict:
+    """What came of a case that ran alone: it expected an error, or a warning with its rows."""
+    if isinstance(case.expect, ExpectedError):
+        return judge_error(case.expect.message, raw)
+    assert case.warning is not None, "a case runs alone only to give an error or a warning"
+    return judge_warning(case.warning.message, raw)
+
+
 def _run_alone(
     index: int,
     spec: SpecFile,
@@ -241,7 +252,6 @@ def _run_alone(
     root, test_dir, raw_config, out_dir, packages_dir = generation
     (macro_spec,) = spec.macros
     (case,) = macro_spec.cases
-    assert isinstance(case.expect, ExpectedError)
     project = out_dir / "cases-run-alone" / str(index)
     _generate(root, test_dir, [spec], raw_config, project, packages_dir)
     try:
@@ -250,7 +260,7 @@ def _run_alone(
         raw = invoke_unit_tests(project, profiles_dir=profiles.directory, target=target, quiet=True)
     except DbtError as e:
         raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
-    return case_id(macro_spec.macro, case.name), judge_error(case.expect.message, raw)
+    return case_id(macro_spec.macro, case.name), _judge(case, raw)
 
 
 def _report(outcome: RunOutcome, verdicts: list[tuple[str, Verdict]], kept: Path | None) -> None:
