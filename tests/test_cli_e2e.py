@@ -6,6 +6,7 @@ from click.testing import CliRunner
 from dbt.cli.main import dbtRunner
 
 from dbt_macro_test.cli import main
+from tests.spec_writer import write_spec
 
 FIXTURE = Path(__file__).parent / "fixtures" / "project"
 
@@ -59,13 +60,13 @@ def test_run_takes_a_var_from_the_environment(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("MT_COUNTRY", "US")
-    (project / "macro_test" / "us.yml").write_text(
-        "macros:\n"
-        "  - macro: greeting\n"
-        "    cases:\n"
-        "      - name: reads_the_environment\n"
-        "        given: {arguments: {name: World}}\n"
-        "        expect: {rows: [{result: 'Hello, World! country=US'}]}\n"
+    write_spec(
+        project / "macro_test",
+        "us.yml",
+        "greeting",
+        "reads_the_environment",
+        arguments={"name": "World"},
+        rows=[{"result": "Hello, World! country=US"}],
     )
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "us.yml")])
@@ -153,6 +154,18 @@ def test_the_profiles_flag_beats_the_environment_variable(project: Path, tmp_pat
     assert "profiles.yml from: --profiles-dir" in result.output
 
 
+def write_wrong_division(project: Path) -> Path:
+    """A case that does not hold: 10 / 4 is not 9.9."""
+    return write_spec(
+        project / "macro_test",
+        "wrong.yml",
+        "safe_divide",
+        "wrong_on_purpose",
+        arguments={"numerator": 10, "denominator": 4},
+        rows=[{"result": 9.9}],
+    )
+
+
 def test_run_passes_when_every_case_matches(project: Path) -> None:
     result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
 
@@ -176,13 +189,13 @@ def test_run_passes_for_macros_that_return_columns(project: Path) -> None:
 
 
 def test_run_shows_the_generated_sql_when_a_case_errors(project: Path) -> None:
-    (project / "macro_test" / "wrong_output.yml").write_text(
-        "macros:\n"
-        "  - macro: with_alias\n"
-        "    cases:\n"
-        "      - name: forgot_output_columns\n"
-        "        given: {arguments: {x: 1}}\n"
-        "        expect: {rows: [{amount: 1}]}\n"
+    write_spec(
+        project / "macro_test",
+        "wrong_output.yml",
+        "with_alias",
+        "forgot_output_columns",
+        arguments={"x": 1},
+        rows=[{"amount": 1}],
     )
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "wrong_output.yml")])
@@ -193,13 +206,13 @@ def test_run_shows_the_generated_sql_when_a_case_errors(project: Path) -> None:
 
 
 def test_run_reports_a_wrong_argument_name_before_running_dbt(project: Path) -> None:
-    (project / "macro_test" / "typo.yml").write_text(
-        "macros:\n"
-        "  - macro: safe_divide\n"
-        "    cases:\n"
-        "      - name: typo\n"
-        "        given: {arguments: {numeratr: 10, denominator: 4}}\n"
-        "        expect: {rows: [{result: 2.5}]}\n"
+    write_spec(
+        project / "macro_test",
+        "typo.yml",
+        "safe_divide",
+        "typo",
+        arguments={"numeratr": 10, "denominator": 4},
+        rows=[{"result": 2.5}],
     )
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "typo.yml")])
@@ -221,12 +234,8 @@ def test_run_shows_a_failure_of_dbt_as_an_error_not_a_traceback(project: Path) -
     (project / "macros" / "refs.sql").write_text(
         "{% macro orders_count() %}(select count(*) from {{ ref('orders') }}){% endmacro %}\n"
     )
-    (project / "macro_test" / "refs.yml").write_text(
-        "macros:\n"
-        "  - macro: orders_count\n"
-        "    cases:\n"
-        "      - name: counts_orders\n"
-        "        expect: {rows: [{result: 1}]}\n"
+    write_spec(
+        project / "macro_test", "refs.yml", "orders_count", "counts_orders", rows=[{"result": 1}]
     )
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "refs.yml")])
@@ -267,14 +276,7 @@ def test_select_that_matches_nothing_could_not_run_and_lists_the_cases(project: 
 
 
 def test_a_broken_case_outside_the_selection_does_not_run(project: Path) -> None:
-    (project / "macro_test" / "wrong.yml").write_text(
-        "macros:\n"
-        "  - macro: safe_divide\n"
-        "    cases:\n"
-        "      - name: wrong_on_purpose\n"
-        "        given: {arguments: {numerator: 10, denominator: 4}}\n"
-        "        expect: {rows: [{result: 9.9}]}\n"
-    )
+    write_wrong_division(project)
 
     selected = CliRunner().invoke(
         main, ["run", "--select", "greeting", str(project / "macro_test")]
@@ -296,14 +298,7 @@ def test_list_prints_the_cases_without_running_dbt(project: Path) -> None:
 
 
 def test_a_failing_case_exits_1_and_the_summary_counts_it(project: Path) -> None:
-    (project / "macro_test" / "wrong.yml").write_text(
-        "macros:\n"
-        "  - macro: safe_divide\n"
-        "    cases:\n"
-        "      - name: wrong_on_purpose\n"
-        "        given: {arguments: {numerator: 10, denominator: 4}}\n"
-        "        expect: {rows: [{result: 9.9}]}\n"
-    )
+    write_wrong_division(project)
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
 
@@ -319,14 +314,14 @@ def test_run_applies_macro_var_and_env_var_overrides(project: Path) -> None:
 
 
 def test_a_wrong_override_expectation_fails(project: Path) -> None:
-    (project / "macro_test" / "wrong_override.yml").write_text(
-        "macros:\n"
-        "  - macro: schema_for\n"
-        "    cases:\n"
-        "      - name: override_not_expected\n"
-        "        given: {arguments: {name: x}}\n"
-        "        overrides: {macros: {is_running_in_ci: true}}\n"
-        "        expect: {rows: [{result: 'x|eu|dev'}]}\n"
+    write_spec(
+        project / "macro_test",
+        "wrong_override.yml",
+        "schema_for",
+        "override_not_expected",
+        arguments={"name": "x"},
+        overrides={"macros": {"is_running_in_ci": True}},
+        rows=[{"result": "x|eu|dev"}],
     )
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "wrong_override.yml")])
@@ -335,14 +330,14 @@ def test_a_wrong_override_expectation_fails(project: Path) -> None:
 
 
 def test_run_rejects_an_override_dbt_does_not_have(project: Path) -> None:
-    (project / "macro_test" / "target.yml").write_text(
-        "macros:\n"
-        "  - macro: schema_for\n"
-        "    cases:\n"
-        "      - name: with_target\n"
-        "        given: {arguments: {name: x}}\n"
-        "        overrides: {target: {schema: s}}\n"
-        "        expect: {rows: []}\n"
+    write_spec(
+        project / "macro_test",
+        "target.yml",
+        "schema_for",
+        "with_target",
+        arguments={"name": "x"},
+        overrides={"target": {"schema": "s"}},
+        rows=[],
     )
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "target.yml")])
@@ -354,16 +349,14 @@ def test_run_rejects_an_override_dbt_does_not_have(project: Path) -> None:
 
 
 def write_greet_case_overriding(project: Path, macro_key: str) -> Path:
-    spec = project / "macro_test" / "package_override.yml"
-    spec.write_text(
-        "macros:\n"
-        "  - macro: greet\n"
-        "    cases:\n"
-        "      - name: overrides_a_package_macro\n"
-        f"        overrides: {{macros: {{{macro_key}: overridden}}}}\n"
-        "        expect: {rows: [{result: overridden}]}\n"
+    return write_spec(
+        project / "macro_test",
+        "package_override.yml",
+        "greet",
+        "overrides_a_package_macro",
+        overrides={"macros": {macro_key: "overridden"}},
+        rows=[{"result": "overridden"}],
     )
-    return spec
 
 
 def test_a_package_macro_is_overridden_under_its_qualified_name(
@@ -395,14 +388,14 @@ def test_run_passes_for_macros_that_return_a_whole_query(project: Path) -> None:
 
 
 def test_a_query_with_a_wrong_row_fails(project: Path) -> None:
-    (project / "macro_test" / "wrong_rows.yml").write_text(
-        "macros:\n"
-        "  - macro: union_two\n"
-        "    cases:\n"
-        "      - name: one_row_missing\n"
-        "        given: {arguments: {a: '(select 1 as id)', b: '(select 2 as id)'}}\n"
-        "        output: query\n"
-        "        expect: {rows: [{id: 1}]}\n"
+    write_spec(
+        project / "macro_test",
+        "wrong_rows.yml",
+        "union_two",
+        "one_row_missing",
+        arguments={"a": "(select 1 as id)", "b": "(select 2 as id)"},
+        output="query",
+        rows=[{"id": 1}],
     )
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "wrong_rows.yml")])
@@ -412,14 +405,7 @@ def test_a_query_with_a_wrong_row_fails(project: Path) -> None:
 
 
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
-    (project / "macro_test" / "wrong.yml").write_text(
-        "macros:\n"
-        "  - macro: safe_divide\n"
-        "    cases:\n"
-        "      - name: wrong_on_purpose\n"
-        "        given: {arguments: {numerator: 10, denominator: 4}}\n"
-        "        expect: {rows: [{result: 9.9}]}\n"
-    )
+    write_wrong_division(project)
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
 
