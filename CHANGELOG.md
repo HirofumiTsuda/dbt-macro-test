@@ -4,9 +4,9 @@ All notable changes are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/); before 1.0.0, a minor version may change the spec format.
 
-## [0.1.0] - not released yet
+## [0.1.0] - 2026-11-25
 
-The first release. The date is put here when the tag is made (see [docs/releasing.md](docs/releasing.md)).
+The first release.
 
 ### Added
 
