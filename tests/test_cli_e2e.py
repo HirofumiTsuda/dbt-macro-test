@@ -82,6 +82,26 @@ def test_run_passes_defaults_and_jinja_expression_arguments(project: Path) -> No
     assert result.exit_code == 0, result.output
 
 
+def test_run_shows_a_failure_of_dbt_as_an_error_not_a_traceback(project: Path) -> None:
+    (project / "macros" / "refs.sql").write_text(
+        "{% macro orders_count() %}(select count(*) from {{ ref('orders') }}){% endmacro %}\n"
+    )
+    (project / "macro_test" / "refs.yml").write_text(
+        "macros:\n"
+        "  - macro: orders_count\n"
+        "    cases:\n"
+        "      - name: counts_orders\n"
+        "        expect: {rows: [{result: 1}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "refs.yml")])
+
+    assert result.exit_code == 1
+    assert isinstance(result.exception, SystemExit)
+    assert "Error: dbt test could not run; see dbt's message above" in result.output
+    assert "Traceback" not in result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     (project / "macro_test" / "wrong.yml").write_text(
         "macros:\n"

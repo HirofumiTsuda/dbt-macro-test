@@ -6,7 +6,7 @@ from dbt.config.project import load_raw_project
 
 from dbt_macro_test.discovery import ProjectNotFoundError, find_project_root
 from dbt_macro_test.generate import generate_project, macro_directories
-from dbt_macro_test.runner import run_unit_tests
+from dbt_macro_test.runner import DbtError, run_unit_tests
 from dbt_macro_test.spec import SpecError, load_specs
 from dbt_macro_test.validate import check_arguments
 
@@ -46,12 +46,15 @@ def run(path: Path, profiles_dir: Path | None, target: str | None) -> None:
 
     test_dir = path if path.is_dir() else path.parent
     project_dir = generate_project(root, test_dir, spec_files, raw_config)
-    outcome = run_unit_tests(
-        project_dir,
-        profiles_dir=profiles_dir,
-        target=target,
-        install_packages=(root / "packages.yml").is_file(),
-    )
+    try:
+        outcome = run_unit_tests(
+            project_dir,
+            profiles_dir=profiles_dir,
+            target=target,
+            install_packages=(root / "packages.yml").is_file(),
+        )
+    except DbtError as e:
+        raise click.ClickException(f"{e.command} could not run; see dbt's message above") from e
     for model in outcome.errored_models:
         sql = (project_dir / "models" / f"{model}.sql").read_text().strip()
         click.echo(f"\nSQL generated for the case that errored ({model}):\n  {sql}", err=True)
