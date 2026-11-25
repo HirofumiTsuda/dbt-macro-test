@@ -4,20 +4,22 @@ import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import click
 from dbt.config.project import load_raw_project
 
 from dbt_macro_test.discovery import (
+    ProfilesChoice,
     ProjectNotFoundError,
     resolve_profiles_dir,
     resolve_project_root,
 )
 from dbt_macro_test.generate import carried_over, generate_project, macro_directories
 from dbt_macro_test.packages import installed_packages_dir
-from dbt_macro_test.runner import DbtError, run_unit_tests
+from dbt_macro_test.runner import DbtError, RunOutcome, run_unit_tests
 from dbt_macro_test.select import case_ids, select_cases
-from dbt_macro_test.spec import SpecError, load_specs
+from dbt_macro_test.spec import SpecError, SpecFile, load_specs
 from dbt_macro_test.validate import check_arguments
 
 
@@ -101,16 +103,48 @@ def run(
     that the tests could not be run (an invalid spec, a wrong argument, no
     project, dbt itself failing, or nothing matching --select).
     """
+    root, path = _locate(project_dir, path)
+    spec_files = _load_and_select(path, selectors)
+    if list_only:
+        for identifier in case_ids(spec_files):
+            click.echo(identifier)
+        return
+
+    raw_config = load_raw_project(str(root))
+    _check_arguments(spec_files, raw_config, root)
+
+    profiles = resolve_profiles_dir(profiles_dir, root, os.environ)
+    packages_dir = installed_packages_dir(raw_config, root)
+    test_dir = path if path.is_dir() else path.parent
+    with _workspace(keep_generated) as out_dir:
+        project = generate_project(root, test_dir, spec_files, raw_config, out_dir, packages_dir)
+        if verbose:
+            _say_what_is_carried_over(raw_config, root, packages_dir, profiles)
+        install = (root / "packages.yml").is_file() and packages_dir is None
+        outcome = _run_dbt(project, profiles, target, install)
+        _report(outcome, project, keep_generated)
+    sys.exit(0 if outcome.passed else 1)
+
+
+def _locate(project_dir: Path | None, path: Path | None) -> tuple[Path, Path]:
+    """The project and the specs to run: both may have to be found."""
     try:
         root = resolve_project_root(project_dir, path if path is not None else Path.cwd())
-        if path is None:
-            path = root / "macro_test"
-            if not path.exists():
-                raise CouldNotRun(f"{path} does not exist; put the specs there or give their path")
-        spec_files = load_specs(path)
-    except (ProjectNotFoundError, SpecError) as e:
+    except ProjectNotFoundError as e:
         raise CouldNotRun(str(e)) from e
+    if path is None:
+        path = root / "macro_test"
+        if not path.exists():
+            raise CouldNotRun(f"{path} does not exist; put the specs there or give their path")
+    return root, path
 
+
+def _load_and_select(path: Path, selectors: tuple[str, ...]) -> list[SpecFile]:
+    """The specs at `path` reduced to the cases the selectors pick."""
+    try:
+        spec_files = load_specs(path)
+    except SpecError as e:
+        raise CouldNotRun(str(e)) from e
     everything = case_ids(spec_files)
     spec_files = select_cases(spec_files, selectors)
     chosen = case_ids(spec_files)
@@ -120,42 +154,42 @@ def run(
         )
     if selectors:
         click.echo(f"Selected {len(chosen)} of {len(everything)} cases.", err=True)
-    if list_only:
-        for identifier in chosen:
-            click.echo(identifier)
-        return
+    return spec_files
 
-    raw_config = load_raw_project(str(root))
+
+def _check_arguments(spec_files: list[SpecFile], raw_config: dict[str, Any], root: Path) -> None:
     problems = check_arguments(spec_files, macro_directories(raw_config, root))
     if problems:
         raise CouldNotRun("\n".join(problems))
 
-    profiles = resolve_profiles_dir(profiles_dir, root, os.environ)
 
-    test_dir = path if path.is_dir() else path.parent
-    packages_dir = installed_packages_dir(raw_config, root)
-    with _workspace(keep_generated) as out_dir:
-        project_dir = generate_project(
-            root, test_dir, spec_files, raw_config, out_dir, packages_dir
+def _say_what_is_carried_over(
+    raw_config: dict[str, Any], root: Path, packages_dir: Path | None, profiles: ProfilesChoice
+) -> None:
+    click.echo("Carried over from the project:", err=True)
+    for line in carried_over(raw_config, root, packages_dir):
+        click.echo(f"  {line}", err=True)
+    click.echo(f"  profiles.yml from: {profiles.source}", err=True)
+
+
+def _run_dbt(
+    project: Path, profiles: ProfilesChoice, target: str | None, install_packages: bool
+) -> RunOutcome:
+    try:
+        return run_unit_tests(
+            project,
+            profiles_dir=profiles.directory,
+            target=target,
+            install_packages=install_packages,
         )
-        if verbose:
-            click.echo("Carried over from the project:", err=True)
-            for line in carried_over(raw_config, root, packages_dir):
-                click.echo(f"  {line}", err=True)
-            click.echo(f"  profiles.yml from: {profiles.source}", err=True)
-        try:
-            outcome = run_unit_tests(
-                project_dir,
-                profiles_dir=profiles.directory,
-                target=target,
-                install_packages=(root / "packages.yml").is_file() and packages_dir is None,
-            )
-        except DbtError as e:
-            raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
-        for model in outcome.errored_models:
-            sql = (project_dir / "models" / f"{model}.sql").read_text().strip()
-            click.echo(f"\nSQL generated for the case that errored ({model}):\n  {sql}", err=True)
-        click.echo(f"\n{outcome.summary()}", err=True)
-        if keep_generated:
-            click.echo(f"Generated project kept at {project_dir}", err=True)
-    sys.exit(0 if outcome.passed else 1)
+    except DbtError as e:
+        raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
+
+
+def _report(outcome: RunOutcome, project: Path, keep_generated: bool) -> None:
+    for model in outcome.errored_models:
+        sql = (project / "models" / f"{model}.sql").read_text().strip()
+        click.echo(f"\nSQL generated for the case that errored ({model}):\n  {sql}", err=True)
+    click.echo(f"\n{outcome.summary()}", err=True)
+    if keep_generated:
+        click.echo(f"Generated project kept at {project}", err=True)
