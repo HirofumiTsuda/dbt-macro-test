@@ -3,12 +3,14 @@ from pathlib import Path
 import pytest
 
 from dbt_macro_test.project import FixtureError, find_fixtures
-from dbt_macro_test.spec import Case, MacroSpec, SpecFile
+from dbt_macro_test.spec import Case, FixtureRef, InlineRows, MacroSpec, SpecFile
 
 
 def spec_naming(*fixtures: str | None) -> list[SpecFile]:
     cases = [
-        Case(name=f"c{i}", arguments={}, expect_rows="", expect_fixture=name)
+        Case(
+            name=f"c{i}", arguments={}, expect=FixtureRef(name) if name else InlineRows("dict", [])
+        )
         for i, name in enumerate(fixtures)
     ]
     return [SpecFile(Path("macro_test/s.yml"), [MacroSpec("m", cases)])]

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dbt_macro_test.spec import Output, load_spec_file
+from dbt_macro_test.spec import InlineRows, Output, load_spec_file
 from tests.spec_writer import write_spec
 
 
@@ -24,7 +24,7 @@ def test_the_parts_given_come_back_when_the_spec_is_read(tmp_path: Path) -> None
     assert case.arguments == {"name": "x"}
     assert case.output is Output.COLUMNS
     assert case.overrides == {"vars": {"region": "us"}}
-    assert case.expect_rows == [{"result": "x|us"}]
+    assert case.expect == InlineRows("dict", [{"result": "x|us"}])
 
 
 def test_what_is_left_out_is_left_out_of_the_file(tmp_path: Path) -> None:
@@ -45,4 +45,4 @@ def test_strings_that_need_quoting_survive(tmp_path: Path) -> None:
     (case,) = load_spec_file(path).macros[0].cases
 
     assert case.arguments == {"x": value}
-    assert case.expect_rows == [{"r": value}]
+    assert case.expect == InlineRows("dict", [{"r": value}])

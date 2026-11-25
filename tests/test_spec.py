@@ -3,6 +3,8 @@ from pathlib import Path
 import pytest
 
 from dbt_macro_test.spec import (
+    FixtureRef,
+    InlineRows,
     JinjaExpression,
     Output,
     SpecError,
@@ -41,9 +43,9 @@ def test_valid_spec_is_loaded(tmp_path: Path) -> None:
     by_zero, no_arguments = spec.macros[0].cases
     assert by_zero.name == "by_zero"
     assert by_zero.arguments == {"numerator": 10, "denominator": 0}
-    assert by_zero.expect_rows == [{"result": None}]
+    assert by_zero.expect == InlineRows("dict", [{"result": None}])
     assert no_arguments.arguments == {}
-    assert no_arguments.expect_rows == []
+    assert no_arguments.expect == InlineRows("dict", [])
 
 
 def case_with(expect: str) -> str:
@@ -53,7 +55,7 @@ def case_with(expect: str) -> str:
 def test_expect_defaults_to_rows_as_mappings(tmp_path: Path) -> None:
     (case,) = load_spec_file(write(tmp_path, case_with("{rows: [{r: 1}]}"))).macros[0].cases
 
-    assert (case.expect_format, case.expect_rows, case.expect_fixture) == ("dict", [{"r": 1}], None)
+    assert case.expect == InlineRows("dict", [{"r": 1}])
 
 
 def test_expect_can_be_csv_or_sql_text(tmp_path: Path) -> None:
@@ -62,15 +64,14 @@ def test_expect_can_be_csv_or_sql_text(tmp_path: Path) -> None:
         for e in ('{format: csv, rows: "a,b\\n1,2"}', "{format: sql, rows: 'select 1 as a'}")
     ]
 
-    assert (csv_case.expect_format, csv_case.expect_rows) == ("csv", "a,b\n1,2")
-    assert (sql_case.expect_format, sql_case.expect_rows) == ("sql", "select 1 as a")
+    assert csv_case.expect == InlineRows("csv", "a,b\n1,2")
+    assert sql_case.expect == InlineRows("sql", "select 1 as a")
 
 
 def test_expect_can_name_a_fixture(tmp_path: Path) -> None:
     (case,) = load_spec_file(write(tmp_path, case_with("{fixture: numbers}"))).macros[0].cases
 
-    assert case.expect_fixture == "numbers"
-    assert case.expect_format == "fixture"
+    assert case.expect == FixtureRef("numbers")
 
 
 @pytest.mark.parametrize(

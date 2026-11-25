@@ -32,7 +32,7 @@ def find_fixtures(spec_files: list[SpecFile], test_dir: Path) -> dict[str, Fixtu
     for spec_file in spec_files:
         for macro_spec in spec_file.macros:
             for case in macro_spec.cases:
-                name = case.expect_fixture
+                name = case.expect.fixture_name
                 if name is None or name in found:
                     continue
                 where = f"{spec_file.path}: macro {macro_spec.macro!r}, case {case.name!r}"

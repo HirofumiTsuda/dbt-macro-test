@@ -1,11 +1,11 @@
 from pathlib import Path
 
 from dbt_macro_test.engine import RunOutcome
-from dbt_macro_test.spec import Case, MacroSpec, SpecFile, case_ids, select_cases
+from dbt_macro_test.spec import Case, InlineRows, MacroSpec, SpecFile, case_ids, select_cases
 
 
 def case(name: str) -> Case:
-    return Case(name=name, arguments={}, expect_rows=[])
+    return Case(name=name, arguments={}, expect=InlineRows("dict", []))
 
 
 def specs() -> list[SpecFile]:

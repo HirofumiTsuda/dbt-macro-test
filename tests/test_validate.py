@@ -1,11 +1,11 @@
 from pathlib import Path
 
 from dbt_macro_test.engine import check_arguments
-from dbt_macro_test.spec import Case, MacroSpec, SpecFile
+from dbt_macro_test.spec import Case, InlineRows, MacroSpec, SpecFile
 
 
 def spec(macro: str, case_name: str, arguments: dict[str, object]) -> SpecFile:
-    case = Case(name=case_name, arguments=arguments, expect_rows=[])
+    case = Case(name=case_name, arguments=arguments, expect=InlineRows("dict", []))
     return SpecFile(Path("macro_test/x.yml"), [MacroSpec(macro, [case])])
 
 
@@ -33,8 +33,8 @@ def test_a_problem_names_the_file_macro_and_case(tmp_path: Path) -> None:
 def test_every_problem_in_every_case_is_reported_at_once(tmp_path: Path) -> None:
     directory = macros_dir(tmp_path, "{% macro add(x, y) %}1{% endmacro %}")
     cases = [
-        Case("a", {"x": 1}, []),
-        Case("b", {"x": 1, "y": 2, "w": 3}, []),
+        Case("a", {"x": 1}, InlineRows("dict", [])),
+        Case("b", {"x": 1, "y": 2, "w": 3}, InlineRows("dict", [])),
     ]
     files = [SpecFile(Path("s.yml"), [MacroSpec("add", cases)])]
 
