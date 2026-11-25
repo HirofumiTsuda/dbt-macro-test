@@ -1,6 +1,6 @@
 import pytest
 
-from dbt_macro_test.output import Output
+from dbt_macro_test.spec import Output
 
 
 def test_an_expression_is_given_a_column_name() -> None:

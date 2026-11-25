@@ -1,8 +1,7 @@
 from pathlib import Path
 
-from dbt_macro_test.runner import RunOutcome
-from dbt_macro_test.select import case_ids, select_cases
-from dbt_macro_test.spec import Case, MacroSpec, SpecFile
+from dbt_macro_test.engine import RunOutcome
+from dbt_macro_test.spec import Case, MacroSpec, SpecFile, case_ids, select_cases
 
 
 def case(name: str) -> Case:

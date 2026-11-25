@@ -2,9 +2,14 @@ from pathlib import Path
 
 import pytest
 
-from dbt_macro_test.literals import JinjaExpression
-from dbt_macro_test.output import Output
-from dbt_macro_test.spec import SpecError, find_spec_files, load_spec_file, load_specs
+from dbt_macro_test.spec import (
+    JinjaExpression,
+    Output,
+    SpecError,
+    find_spec_files,
+    load_spec_file,
+    load_specs,
+)
 
 
 def write(tmp_path: Path, text: str) -> Path:

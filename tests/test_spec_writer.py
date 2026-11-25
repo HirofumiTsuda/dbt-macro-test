@@ -1,7 +1,6 @@
 from pathlib import Path
 
-from dbt_macro_test.output import Output
-from dbt_macro_test.spec import load_spec_file
+from dbt_macro_test.spec import Output, load_spec_file
 from tests.spec_writer import write_spec
 
 

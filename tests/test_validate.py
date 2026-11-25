@@ -1,7 +1,7 @@
 from pathlib import Path
 
+from dbt_macro_test.engine import check_arguments
 from dbt_macro_test.spec import Case, MacroSpec, SpecFile
-from dbt_macro_test.validate import check_arguments
 
 
 def spec(macro: str, case_name: str, arguments: dict[str, object]) -> SpecFile:

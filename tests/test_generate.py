@@ -3,7 +3,7 @@ from typing import Any
 
 import yaml
 
-from dbt_macro_test.generate import (
+from dbt_macro_test.project import (
     build_files,
     carried_over,
     macro_call,

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import yaml
 
-from dbt_macro_test.packages import installed_packages_dir, with_absolute_local_paths
+from dbt_macro_test.project import installed_packages_dir, with_absolute_local_paths
 
 
 def project_with_packages_yml(root: Path) -> None:

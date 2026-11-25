@@ -6,8 +6,8 @@ from typing import Any
 
 import yaml
 
-from dbt_macro_test.literals import JinjaExpression
-from dbt_macro_test.output import Output
+from dbt_macro_test.spec.literals import JinjaExpression
+from dbt_macro_test.spec.output import Output
 
 _TYPES = ("literal", "jinja")
 _OVERRIDE_KINDS = ("macros", "vars", "env_vars")
