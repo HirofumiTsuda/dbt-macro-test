@@ -31,6 +31,10 @@ class InlineRows:
     def fixture_name(self) -> None:
         return None
 
+    @property
+    def isolated(self) -> bool:
+        return False
+
     def for_unit_test(self, fixture_formats: Mapping[str, str]) -> InlineExpect:
         """The `expect` of the native unit test."""
         return InlineExpect(format=self.format, rows=self.content)
@@ -46,8 +50,32 @@ class FixtureRef:
     def fixture_name(self) -> str:
         return self.name
 
+    @property
+    def isolated(self) -> bool:
+        return False
+
     def for_unit_test(self, fixture_formats: Mapping[str, str]) -> FixtureExpect:
         return FixtureExpect(format=fixture_formats[self.name], fixture=self.name)
 
 
-Expectation = InlineRows | FixtureRef
+@dataclass(frozen=True)
+class ExpectedError:
+    """The case ends in an error whose text contains `message`: a raise or a warehouse error."""
+
+    message: str
+
+    @property
+    def fixture_name(self) -> None:
+        return None
+
+    @property
+    def isolated(self) -> bool:
+        """Whether the case runs on its own: a raise that is not guarded stops the whole run."""
+        return True
+
+    def for_unit_test(self, fixture_formats: Mapping[str, str]) -> InlineExpect:
+        """Rows that the case cannot match: it is expected to end before they are compared."""
+        return InlineExpect(format="dict", rows=[])
+
+
+Expectation = InlineRows | FixtureRef | ExpectedError

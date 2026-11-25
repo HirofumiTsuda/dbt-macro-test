@@ -69,6 +69,31 @@ is `{k1=1, k2=2}` on duckdb, which is why `sql` is the easier way to write a
 composite value. When a value differs, the failure shows the two, column by
 column. Rows are compared in any order.
 
+### Expecting an error
+
+A macro that rejects its input is tested by the error it gives:
+
+```yaml
+      - name: a_negative_number_is_refused
+        given:
+          arguments:
+            x: -5
+        expect:
+          error:
+            message: x must not be negative      # the error's text contains this
+```
+
+The case passes when it ends in an error whose text contains the message, whether
+the macro raised it (`exceptions.raise_compiler_error`) or the warehouse did (a
+failed cast, for instance), and fails, saying what happened, when there was no error
+or the text was different. The message is matched as a plain piece of text.
+
+A macro that raises while dbt parses the project stops dbt for every case in the
+run, unless it is guarded by `{% if execute %}`. So each case that expects an error
+runs in a dbt run of its own, and the others are not affected; the cost is a dbt run
+for each such case. `--verbose` and the summary count them with the rest, and dbt's own
+output for them is not shown, since the error is what the case is for.
+
 ### What the macro returns
 
 By default a macro's output is treated as a single SQL expression, and its

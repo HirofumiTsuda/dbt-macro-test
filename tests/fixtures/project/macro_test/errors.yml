@@ -1,0 +1,32 @@
+macros:
+  - macro: positive
+    cases:
+      - name: raises_when_not_guarded
+        given:
+          arguments:
+            x: -5
+        expect:
+          error:
+            message: x must not be negative
+      - name: does_not_raise_for_a_good_value
+        given:
+          arguments:
+            x: 5
+        expect:
+          rows:
+            - {result: 5}
+  - macro: guarded_positive
+    cases:
+      - name: raises_when_guarded
+        given:
+          arguments:
+            x: -5
+        expect:
+          error:
+            message: "guarded: x must not be negative, got -5"
+  - macro: bad_cast
+    cases:
+      - name: the_warehouse_cannot_convert
+        expect:
+          error:
+            message: Could not convert string 'abc'

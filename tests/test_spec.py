@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from dbt_macro_test.spec import (
+    ExpectedError,
     FixtureRef,
     InlineRows,
     JinjaExpression,
@@ -78,8 +79,8 @@ def test_expect_can_name_a_fixture(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("expect", "message"),
     [
-        ("{}", "needs exactly one of 'rows' and 'fixture'"),
-        ("{rows: [], fixture: x}", "needs exactly one of 'rows' and 'fixture'"),
+        ("{}", "needs exactly one of 'rows', 'fixture' and 'error'"),
+        ("{rows: [], fixture: x}", "needs exactly one of 'rows', 'fixture' and 'error'"),
         ("{format: csv, fixture: x}", "a fixture says its format by its extension"),
         ("{fixture: 'a b'}", "'a b' is not a fixture name"),
         ("{fixture: 1}", "1 is not a fixture name"),
@@ -91,6 +92,42 @@ def test_expect_can_name_a_fixture(tmp_path: Path) -> None:
     ],
 )
 def test_invalid_expectations_are_reported(tmp_path: Path, expect: str, message: str) -> None:
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, case_with(expect)))
+
+    assert message in str(error.value)
+
+
+def test_expect_can_be_an_error_with_a_message(tmp_path: Path) -> None:
+    text = case_with("{error: {message: must not be negative}}")
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert case.expect == ExpectedError("must not be negative")
+    assert case.expect.isolated is True
+
+
+def test_only_a_case_that_expects_an_error_runs_alone(tmp_path: Path) -> None:
+    rows = load_spec_file(write(tmp_path, case_with("{rows: []}"))).macros[0].cases[0]
+    fixture = load_spec_file(write(tmp_path, case_with("{fixture: numbers}"))).macros[0].cases[0]
+
+    assert (rows.expect.isolated, fixture.expect.isolated) == (False, False)
+
+
+@pytest.mark.parametrize(
+    ("expect", "message"),
+    [
+        ("{error: {}}", "missing required key 'message'"),
+        ("{error: {message: ''}}", "must be the text the error contains"),
+        ("{error: {message: 1}}", "must be the text the error contains"),
+        ("{error: {message: x, extra: 1}}", "unknown key(s): extra"),
+        ("{error: boom}", "expect.error: must be a mapping"),
+        ("{error: {message: x}, rows: []}", "needs exactly one of 'rows', 'fixture' and 'error'"),
+        ("{error: {message: x}, fixture: n}", "needs exactly one of 'rows', 'fixture' and 'error'"),
+        ("{error: {message: x}, format: csv}", "'format' goes with 'rows', not with 'error'"),
+    ],
+)
+def test_invalid_error_expectations_are_reported(tmp_path: Path, expect: str, message: str) -> None:
     with pytest.raises(SpecError) as error:
         load_spec_file(write(tmp_path, case_with(expect)))
 
@@ -255,7 +292,7 @@ def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:
         ),
         (
             "macros:\n  - {macro: x, cases: [{name: a, expect: {}}]}",
-            "needs exactly one of 'rows' and 'fixture'",
+            "needs exactly one of 'rows', 'fixture' and 'error'",
         ),
         (
             "macros:\n  - {macro: x, cases: [{name: a, expect: {rows: [1]}}]}",

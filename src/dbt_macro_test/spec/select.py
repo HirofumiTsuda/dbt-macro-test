@@ -34,6 +34,30 @@ def select_cases(spec_files: list[SpecFile], patterns: Collection[str]) -> list[
     return selected
 
 
+def split_isolated(spec_files: list[SpecFile]) -> tuple[list[SpecFile], list[SpecFile]]:
+    """The specs without the cases that must run alone, and one spec per case that must.
+
+    A case that expects an error is one of those: if it raises where dbt parses the project, no
+    other case in the same run gets to run. Each of them comes back as a spec of its own, with
+    one macro and one case.
+    """
+    together: list[SpecFile] = []
+    alone: list[SpecFile] = []
+    for spec_file in spec_files:
+        macros = []
+        for macro_spec in spec_file.macros:
+            kept = [c for c in macro_spec.cases if not c.expect.isolated]
+            if kept:
+                macros.append(replace(macro_spec, cases=kept))
+            for case in macro_spec.cases:
+                if case.expect.isolated:
+                    one = replace(macro_spec, cases=[case])
+                    alone.append(replace(spec_file, macros=[one]))
+        if macros:
+            together.append(replace(spec_file, macros=macros))
+    return together, alone
+
+
 def case_ids(spec_files: list[SpecFile]) -> list[str]:
     return [
         case_id(macro_spec.macro, case.name)
