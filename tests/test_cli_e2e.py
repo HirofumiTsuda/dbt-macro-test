@@ -18,6 +18,60 @@ def project(tmp_path: Path) -> Path:
     return destination
 
 
+def test_run_adds_nothing_to_the_project_but_the_file_dbt_itself_writes(project: Path) -> None:
+    dbt_user_id_file = ".user.yml"
+    before = {p.name for p in project.iterdir()}
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "greeting.yml")])
+
+    assert result.exit_code == 0, result.output
+    assert {p.name for p in project.iterdir()} - before - {dbt_user_id_file} == set()
+
+
+def test_run_keeps_the_generated_project_when_asked(project: Path) -> None:
+    result = CliRunner().invoke(
+        main, ["run", "--keep-generated", str(project / "macro_test" / "greeting.yml")]
+    )
+
+    assert result.exit_code == 0, result.output
+    kept = Path(result.output.split("Generated project kept at ")[1].strip())
+    try:
+        assert (kept / "dbt_project.yml").is_file()
+        assert kept.parent != project
+    finally:
+        shutil.rmtree(kept, ignore_errors=True)
+
+
+def test_run_says_what_it_carries_over_when_verbose(project: Path) -> None:
+    result = CliRunner().invoke(
+        main, ["run", "--verbose", str(project / "macro_test" / "greeting.yml")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Carried over from the project:" in result.output
+    assert "project: fixture_project (profile: fixture_project)" in result.output
+    assert "vars: country" in result.output
+    assert "run hooks left out: on-run-start" in result.output
+
+
+def test_run_takes_a_var_from_the_environment(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("MT_COUNTRY", "US")
+    (project / "macro_test" / "us.yml").write_text(
+        "macros:\n"
+        "  - macro: greeting\n"
+        "    cases:\n"
+        "      - name: reads_the_environment\n"
+        "        given: {arguments: {name: World}}\n"
+        "        expect: {rows: [{result: 'Hello, World! country=US'}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "us.yml")])
+
+    assert result.exit_code == 0, result.output
+
+
 def test_run_passes_when_every_case_matches(project: Path) -> None:
     result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
 

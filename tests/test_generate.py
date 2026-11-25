@@ -5,6 +5,7 @@ import yaml
 
 from dbt_macro_test.generate import (
     build_files,
+    carried_over,
     macro_call,
     model_name,
     project_config,
@@ -108,3 +109,25 @@ def test_write_project_replaces_the_previous_output(tmp_path: Path) -> None:
 
     assert (out / "models" / "a.sql").read_text() == "select 1"
     assert not (out / "stale.txt").exists()
+
+
+def test_carried_over_says_what_is_taken_and_what_is_left_out(tmp_path: Path) -> None:
+    (tmp_path / "packages.yml").write_text("packages: []\n")
+
+    lines = carried_over(RAW, tmp_path)
+
+    assert "project: shop (profile: shop)" in lines
+    assert f"macro directories: {tmp_path / 'macros'}, {tmp_path / 'more'}" in lines
+    assert "vars: country" in lines
+    assert "dispatch entries: 1" in lines
+    assert "packages.yml: copied" in lines
+    assert "run hooks left out: on-run-start, on-run-end" in lines
+
+
+def test_carried_over_for_a_bare_project(tmp_path: Path) -> None:
+    lines = carried_over({"name": "x", "profile": "x"}, tmp_path)
+
+    assert "vars: none" in lines
+    assert "dispatch entries: 0" in lines
+    assert "packages.yml: none" in lines
+    assert "run hooks left out: none" in lines

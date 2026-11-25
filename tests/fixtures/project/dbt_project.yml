@@ -2,8 +2,8 @@ name: fixture_project
 version: "1.0.0"
 config-version: 2
 profile: fixture_project
-macro-paths: ["macros"]
+macro-paths: ["macros", "more_macros"]
 vars:
-  country: JP
+  country: "{{ env_var('MT_COUNTRY', 'JP') }}"
 on-run-start:
   - "select 1"
