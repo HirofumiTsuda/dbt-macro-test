@@ -11,7 +11,8 @@ run fails because the script changes one expected value with `sed`.
 | `demo.cast` | The recording, in asciinema's format; `uvx asciinema play docs/images/demo.cast` replays it |
 | `demo.gif` | `demo.cast` converted to a GIF |
 
-To make it again, with the project in `shop/` next to `demo.sh` and `dbt-macro-test` on the `PATH`:
+To make it again, the steps are in the skill `.claude/skills/record-demo/SKILL.md` (for Claude, with what to check
+in the frames). By hand, with the project in `shop/` next to `demo.sh` and `dbt-macro-test` on the `PATH`:
 
 ```bash
 uvx asciinema rec --overwrite -q --cols 122 --rows 38 -c "bash demo.sh" demo.cast
