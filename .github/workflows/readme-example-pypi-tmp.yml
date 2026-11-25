@@ -1,0 +1,21 @@
+# TEMPORARY: the README example with the install from PyPI, run once on a project of this repository
+name: README example from PyPI (temporary)
+on: [pull_request]
+
+defaults:
+  run:
+    working-directory: tests/fixtures/project
+
+jobs:
+  macro-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install dbt-duckdb dbt-macro-test
+      - run: dbt deps            # leave this out if the project has no packages.yml
+      - run: dbt-macro-test run
+        env:
+          DBT_PROFILES_DIR: .    # the directory of a profiles.yml that CI can use
