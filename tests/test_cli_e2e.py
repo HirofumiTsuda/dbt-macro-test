@@ -20,6 +20,16 @@ def project(tmp_path: Path) -> Path:
     return destination
 
 
+@pytest.fixture
+def small_project(project: Path) -> Path:
+    """The fixture project with a single spec left in macro_test/, for the tests that are about
+    finding the project and the specs and not about what the cases do."""
+    for spec in (project / "macro_test").glob("*.yml"):
+        if spec.name != "greeting.yml":
+            spec.unlink()
+    return project
+
+
 def test_run_adds_nothing_to_the_project_but_the_file_dbt_itself_writes(project: Path) -> None:
     dbt_user_id_file = ".user.yml"
     before = {p.name for p in project.iterdir()}
@@ -75,9 +85,9 @@ def test_run_takes_a_var_from_the_environment(
 
 
 def test_run_finds_the_project_from_a_subdirectory(
-    project: Path, monkeypatch: pytest.MonkeyPatch
+    small_project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.chdir(project / "macros")
+    monkeypatch.chdir(small_project / "macros")
 
     result = CliRunner().invoke(main, ["run"])
 
@@ -85,13 +95,13 @@ def test_run_finds_the_project_from_a_subdirectory(
 
 
 def test_run_uses_the_project_given_even_when_started_elsewhere(
-    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    small_project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
     monkeypatch.chdir(elsewhere)
 
-    result = CliRunner().invoke(main, ["run", "--project-dir", str(project)])
+    result = CliRunner().invoke(main, ["run", "--project-dir", str(small_project)])
 
     assert result.exit_code == 0, result.output
 
@@ -173,9 +183,9 @@ def test_run_passes_when_every_case_matches(project: Path) -> None:
 
 
 def test_run_without_arguments_uses_macro_test_in_the_current_directory(
-    project: Path, monkeypatch: pytest.MonkeyPatch
+    small_project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.chdir(project)
+    monkeypatch.chdir(small_project)
 
     result = CliRunner().invoke(main, ["run"])
 
@@ -275,13 +285,12 @@ def test_select_that_matches_nothing_could_not_run_and_lists_the_cases(project: 
     assert "safe_divide::plain_division" in result.output
 
 
-def test_a_broken_case_outside_the_selection_does_not_run(project: Path) -> None:
-    write_wrong_division(project)
+def test_a_broken_case_outside_the_selection_does_not_run(small_project: Path) -> None:
+    write_wrong_division(small_project)
+    specs = str(small_project / "macro_test")
 
-    selected = CliRunner().invoke(
-        main, ["run", "--select", "greeting", str(project / "macro_test")]
-    )
-    everything = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+    selected = CliRunner().invoke(main, ["run", "--select", "greeting", specs])
+    everything = CliRunner().invoke(main, ["run", specs])
 
     assert selected.exit_code == 0, selected.output
     assert everything.exit_code == 1
@@ -298,12 +307,12 @@ def test_list_prints_the_cases_without_running_dbt(project: Path) -> None:
 
 
 def test_a_failing_case_exits_1_and_the_summary_counts_it(project: Path) -> None:
-    write_wrong_division(project)
+    spec = write_wrong_division(project)
 
-    result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+    result = CliRunner().invoke(main, ["run", str(spec)])
 
     assert result.exit_code == 1
-    assert "1 failed, " in result.output
+    assert "1 failed" in result.output
 
 
 def test_run_applies_macro_var_and_env_var_overrides(project: Path) -> None:
@@ -458,11 +467,12 @@ def test_run_passes_for_cases_that_expect_an_error(project: Path) -> None:
 
 
 def test_a_case_that_raises_does_not_stop_the_others(project: Path) -> None:
-    result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "errors.yml")])
 
     assert result.exit_code == 0, result.output
-    assert "positive::raises_when_not_guarded" in result.output
-    assert "passed" in result.output
+    assert "PASS positive::raises_when_not_guarded" in result.output
+    assert "PASS _mt_errors_positive_does_not_raise_for_a_good_value" in result.output
+    assert "4 passed" in result.output
     assert "failed" not in result.output
 
 
@@ -502,9 +512,9 @@ def test_an_error_with_other_text_fails_and_shows_the_text_it_had(project: Path)
 
 
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
-    write_wrong_division(project)
+    spec = write_wrong_division(project)
 
-    result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+    result = CliRunner().invoke(main, ["run", str(spec)])
 
     assert result.exit_code == 1
 

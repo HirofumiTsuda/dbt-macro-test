@@ -26,6 +26,7 @@ dev = [
     "dbt-duckdb>=1.11.0",
     "mypy>=2.4.1",
     "pytest>=9.1.1",
+    "pytest-xdist>=3.8.0",
     "ruff>=0.17.6",
     "types-pyyaml>=6.0.12.20261122",
 ]
@@ -47,3 +48,4 @@ disallow_untyped_calls = false
 
 [tool.pytest.ini_options]
 markers = ["e2e: runs dbt against a real project (slower)"]
+addopts = "-n auto --maxprocesses=4"
