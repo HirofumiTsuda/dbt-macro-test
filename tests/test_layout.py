@@ -1,4 +1,6 @@
 import ast
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -51,6 +53,13 @@ def test_spec_and_project_do_not_reach_into_the_engine(directory: str) -> None:
     assert offenders == []
 
 
-def test_the_public_names_are_still_importable_from_the_package() -> None:
-    for name in ("load_macro", "load_macro_from_manifest", "connect_project", "execute_sql"):
-        assert callable(getattr(dbt_macro_test, name))
+def test_importing_the_package_and_its_dbt_free_parts_does_not_load_dbt() -> None:
+    code = (
+        "import sys, dbt_macro_test, dbt_macro_test.spec, dbt_macro_test.project\n"
+        "print(sorted(m for m in sys.modules if m == 'dbt' or m.startswith('dbt.')))"
+    )
+
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "[]"
