@@ -36,8 +36,9 @@ of a spec into a throwaway model and a native dbt unit test in a temporary direc
 run it. Execution, comparison, and the output when a case fails are dbt's own, not a second
 implementation; what the tool adds is the spec format, the generation, and reading the result
 back. If dbt ships macro unit tests of its own, the specs say what a macro should do and are
-the part worth keeping; see [`docs/design.md`](docs/design.md) for the design, the evidence for
-the gap and the prior art.
+the part worth keeping. [`docs/design.md`](docs/design.md) says how it works and why;
+[`docs/history/design-log.md`](docs/history/design-log.md) has the evidence for the gap and the
+prior art.
 
 ## Install
 
@@ -228,10 +229,12 @@ Each of these has an issue.
 - Adapters other than duckdb: the tool leaves the work to dbt, so others may well work, but
   none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
 
-The tool runs dbt through `dbtRunner`, dbt's programmatic entry point. It also reads two things
-that are not a documented interface: the project file, with `dbt.config.project.load_raw_project`,
-and the fields of the results and events of a run. A new dbt-core may change them; the suite is
-run on dbt-core 1.8 and on the newest one in CI to find where they differ.
+The tool runs dbt through `dbtRunner`, dbt's programmatic entry point. It also uses three
+things that are not a documented interface: the project file, read with
+`dbt.config.project.load_raw_project`; the function of `dbt_common` that finds the macros in a
+file; and the fields of the results and events of a run. A new dbt-core may change them; the suite
+is run on dbt-core 1.8 and on the newest one in CI to find where they differ. See
+[`docs/design.md`](docs/design.md).
 
 ## Development
 
