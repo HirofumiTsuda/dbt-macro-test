@@ -108,7 +108,9 @@ in a dbt run of its own (`Case.isolated`, `split_isolated`; the project is gener
 - A warning: dbt reports it as an event that belongs to no case, and gives the same one more than
   once, so it can be said to be a case's only when one case runs.
 
-The cost is a dbt run per such case, about three seconds on the machine it was developed on. For
+The cost is a dbt run per such case. Measured on the machine it was developed on (duckdb), a run
+of one case takes 3 to 4 seconds, which is mostly start-up and is the same for ten ordinary cases
+run together; each further case that runs alone adds about 1.3 seconds (ten of them: 15 seconds). For
 these runs dbt's own output is silenced (`--log-level none`; `--quiet` still prints errors), since
 an expected error would look like a failure on the screen. The events still reach the callbacks of
 `dbtRunner`, which is how the warnings are collected (`RawRun.warnings`, each once, without the
