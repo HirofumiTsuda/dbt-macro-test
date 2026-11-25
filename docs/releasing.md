@@ -2,7 +2,8 @@
 
 A release is made by the maintainer, by pushing a tag. Nothing is published without the approval of
 the `pypi` environment in GitHub, and a version number on PyPI can never be used again, so a
-mistake is fixed in the next version.
+mistake is fixed in the next version. The steps, and what Claude checks and does not do alone, are
+also in the skill `.claude/skills/release/SKILL.md`; change both when the way changes.
 
 ## Once, before the first release
 
@@ -15,7 +16,10 @@ These are settings of PyPI and GitHub, not of the repository, and are the mainta
    with the environment `testpypi`.
 2. **GitHub environments** (Settings, Environments): `pypi`, with *Required reviewers* set to
    the maintainer (this is the approval), and, if wanted, a rule that only tags may deploy to it;
-   and `testpypi`.
+   and `testpypi`. **Make `pypi` before the first tag.** A job that names an environment that does
+   not exist makes it on the spot with no rule, and then does not wait for anyone: the release
+   would be published without the approval. (`testpypi` was made that way by the first dry run.)
+   Check with `gh api repos/HirofumiTsuda/dbt-macro-test/environments`.
 3. **A dry run on TestPyPI**: Actions, Release, *Run workflow*, on a branch whose `pyproject.toml`
    has a version that TestPyPI has not seen (such as `0.1.0.dev1`, with a matching heading in
    `CHANGELOG.md`). It runs the whole of the release except the last step, and publishes to TestPyPI.
@@ -33,6 +37,9 @@ These are settings of PyPI and GitHub, not of the repository, and are the mainta
 2. In a pull request: set `version` in `pyproject.toml`, and in `CHANGELOG.md` rename the heading of
    the version to `## [X.Y.Z] - YYYY-MM-DD` and list what changed. The pull request runs the build
    and the smoke test of the release, so the package is known to be sound before the tag.
+   **For the first release**, the README says that the tool is not on PyPI and installs it from git;
+   the PyPI page of a version is the README as it was built, so change the status line and the
+   install lines (also in the example for GitHub Actions) in the same pull request.
 3. After it is merged, tag the merge commit and push the tag:
 
    ```bash
