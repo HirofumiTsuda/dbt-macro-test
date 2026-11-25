@@ -9,6 +9,7 @@ from dbt.config.project import load_raw_project
 
 from dbt_macro_test.discovery import ProjectNotFoundError, find_project_root
 from dbt_macro_test.generate import carried_over, generate_project, macro_directories
+from dbt_macro_test.packages import installed_packages_dir
 from dbt_macro_test.runner import DbtError, run_unit_tests
 from dbt_macro_test.spec import SpecError, load_specs
 from dbt_macro_test.validate import check_arguments
@@ -72,18 +73,21 @@ def run(
         profiles_dir = root
 
     test_dir = path if path.is_dir() else path.parent
+    packages_dir = installed_packages_dir(raw_config, root)
     with _workspace(keep_generated) as out_dir:
-        project_dir = generate_project(root, test_dir, spec_files, raw_config, out_dir)
+        project_dir = generate_project(
+            root, test_dir, spec_files, raw_config, out_dir, packages_dir
+        )
         if verbose:
             click.echo("Carried over from the project:", err=True)
-            for line in carried_over(raw_config, root):
+            for line in carried_over(raw_config, root, packages_dir):
                 click.echo(f"  {line}", err=True)
         try:
             outcome = run_unit_tests(
                 project_dir,
                 profiles_dir=profiles_dir,
                 target=target,
-                install_packages=(root / "packages.yml").is_file(),
+                install_packages=(root / "packages.yml").is_file() and packages_dir is None,
             )
         except DbtError as e:
             raise click.ClickException(f"{e.command} could not run; see dbt's message above") from e

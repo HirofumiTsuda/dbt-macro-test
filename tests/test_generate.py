@@ -120,7 +120,7 @@ def test_carried_over_says_what_is_taken_and_what_is_left_out(tmp_path: Path) ->
     assert f"macro directories: {tmp_path / 'macros'}, {tmp_path / 'more'}" in lines
     assert "vars: country" in lines
     assert "dispatch entries: 1" in lines
-    assert "packages.yml: copied" in lines
+    assert "packages: packages.yml copied (dbt deps is run)" in lines
     assert "run hooks left out: on-run-start, on-run-end" in lines
 
 
@@ -129,5 +129,36 @@ def test_carried_over_for_a_bare_project(tmp_path: Path) -> None:
 
     assert "vars: none" in lines
     assert "dispatch entries: 0" in lines
-    assert "packages.yml: none" in lines
+    assert "packages: none" in lines
     assert "run hooks left out: none" in lines
+
+
+def test_carried_over_says_when_installed_packages_are_reused(tmp_path: Path) -> None:
+    (tmp_path / "packages.yml").write_text("packages: []\n")
+    installed = tmp_path / "dbt_packages"
+
+    lines = carried_over(RAW, tmp_path, installed)
+
+    assert f"packages: reusing {installed} (dbt deps is not run)" in lines
+
+
+def test_project_config_points_at_installed_packages_when_reusing_them(tmp_path: Path) -> None:
+    installed = tmp_path / "somewhere" / "dbt_packages"
+
+    config = project_config(RAW, tmp_path, installed)
+
+    assert config["packages-install-path"] == str(installed)
+
+
+def test_project_config_drops_the_install_path_when_installing_afresh(tmp_path: Path) -> None:
+    raw = {**RAW, "packages-install-path": "../vendored"}
+
+    assert "packages-install-path" not in project_config(raw, tmp_path)
+
+
+def test_build_files_makes_local_package_paths_absolute(tmp_path: Path) -> None:
+    files = build_files(RAW, tmp_path, tmp_path, [], packages_yml="packages:\n  - local: ../x\n")
+
+    assert yaml.safe_load(files["packages.yml"])["packages"] == [
+        {"local": str((tmp_path / "../x").resolve())}
+    ]

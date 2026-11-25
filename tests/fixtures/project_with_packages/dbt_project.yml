@@ -1,0 +1,8 @@
+name: pkgproj
+version: "1.0.0"
+config-version: 2
+profile: pkgproj
+macro-paths: ["macros"]
+dispatch:
+  - macro_namespace: spike_utils
+    search_order: ['pkgproj', 'spike_utils']

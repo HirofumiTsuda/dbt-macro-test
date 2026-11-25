@@ -1,0 +1,4 @@
+name: other_utils
+version: "1.0.0"
+config-version: 2
+macro-paths: ["macros"]
