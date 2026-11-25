@@ -1,10 +1,18 @@
-from dbt_macro_test.spec.expectation import Expectation, FixtureRef, InlineRows
+from dbt_macro_test.spec.expectation import (
+    Expectation,
+    FixtureExpect,
+    FixtureRef,
+    InlineExpect,
+    InlineRows,
+    UnitTestExpect,
+)
 from dbt_macro_test.spec.literals import JinjaExpression, to_jinja_literal
 from dbt_macro_test.spec.output import Output
 from dbt_macro_test.spec.select import case_id, case_ids, select_cases
 from dbt_macro_test.spec.spec import (
     Case,
     MacroSpec,
+    Overrides,
     SpecError,
     SpecFile,
     find_spec_files,
@@ -15,13 +23,17 @@ from dbt_macro_test.spec.spec import (
 __all__ = [
     "Case",
     "Expectation",
+    "FixtureExpect",
     "FixtureRef",
+    "InlineExpect",
     "InlineRows",
     "JinjaExpression",
     "MacroSpec",
     "Output",
+    "Overrides",
     "SpecError",
     "SpecFile",
+    "UnitTestExpect",
     "case_id",
     "case_ids",
     "find_spec_files",

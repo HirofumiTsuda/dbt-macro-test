@@ -2,7 +2,7 @@ import re
 from collections.abc import Collection
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import yaml
 
@@ -11,10 +11,20 @@ from dbt_macro_test.spec.literals import JinjaExpression
 from dbt_macro_test.spec.output import Output
 
 _TYPES = ("literal", "jinja")
-_OVERRIDE_KINDS = ("macros", "vars", "env_vars")
 _FORMATS = ("dict", "csv", "sql")
 _IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MACRO_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?$")
+
+
+class Overrides(TypedDict, total=False):
+    """What dbt's own unit tests accept under `overrides`; what is not given is left out."""
+
+    macros: dict[str, Any]
+    vars: dict[str, Any]
+    env_vars: dict[str, Any]
+
+
+_OVERRIDE_KINDS = tuple(Overrides.__annotations__)
 
 
 class SpecError(Exception):
@@ -27,7 +37,7 @@ class Case:
     arguments: dict[str, Any]
     expect: Expectation
     output: Output = Output.EXPRESSION
-    overrides: dict[str, dict[str, Any]] = field(default_factory=dict)
+    overrides: Overrides = field(default_factory=lambda: Overrides())
 
 
 @dataclass(frozen=True)
@@ -137,7 +147,7 @@ def _parse_argument(value: Any, path: Path, where: str) -> Any:
     return JinjaExpression(expression)
 
 
-def _parse_overrides(value: Any, path: Path, where: str) -> dict[str, dict[str, Any]]:
+def _parse_overrides(value: Any, path: Path, where: str) -> Overrides:
     """What dbt's own unit tests accept under `overrides`: macros, vars and env_vars."""
     if isinstance(value, dict):
         unknown = sorted(str(k) for k in value if k not in _OVERRIDE_KINDS)
@@ -148,12 +158,19 @@ def _parse_overrides(value: Any, path: Path, where: str) -> dict[str, dict[str, 
                 f"cannot override {', '.join(unknown)}; "
                 f"dbt's unit tests accept: {', '.join(_OVERRIDE_KINDS)}",
             )
-    overrides = _mapping(value, path, where, optional=_OVERRIDE_KINDS)
-    return {
-        kind: dict(_mapping(overrides[kind], path, f"{where}.{kind}", any_keys=True))
-        for kind in _OVERRIDE_KINDS
-        if kind in overrides
-    }
+    given = _mapping(value, path, where, optional=_OVERRIDE_KINDS)
+    overrides = Overrides()
+    if "macros" in given:
+        overrides["macros"] = dict(
+            _mapping(given["macros"], path, f"{where}.macros", any_keys=True)
+        )
+    if "vars" in given:
+        overrides["vars"] = dict(_mapping(given["vars"], path, f"{where}.vars", any_keys=True))
+    if "env_vars" in given:
+        overrides["env_vars"] = dict(
+            _mapping(given["env_vars"], path, f"{where}.env_vars", any_keys=True)
+        )
+    return overrides
 
 
 def _parse_name(value: Any, path: Path, where: str) -> str:
@@ -229,7 +246,7 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
     overrides = (
         _parse_overrides(body["overrides"], path, f"{where}.overrides")
         if "overrides" in body
-        else {}
+        else Overrides()
     )
     arguments = _parse_given(body["given"], path, where) if "given" in body else {}
     expect = _parse_expect(body["expect"], path, where)
