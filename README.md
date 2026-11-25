@@ -98,7 +98,7 @@ dbt-macro-test run --target ci
 ```
 
 Each case becomes a throwaway model plus a native dbt unit test, generated
-under `target/macro_test/` and run by dbt itself, so the output and the diff
+in a temporary directory and run by dbt itself, so the output and the diff
 on failure are dbt's own. The project's `vars`, `dispatch` and `macro-paths`
 are carried over; its `on-run-start` / `on-run-end` hooks are not run.
 

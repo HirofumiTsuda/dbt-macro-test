@@ -8,8 +8,6 @@ import yaml
 from dbt_macro_test.literals import to_jinja_literal
 from dbt_macro_test.spec import SpecFile
 
-GENERATED_DIR = Path("target") / "macro_test"
-
 
 def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:
     """The real project's macro directories, as absolute paths."""
@@ -87,10 +85,29 @@ def write_project(files: dict[str, str], out_dir: Path) -> None:
         target.write_text(content)
 
 
+def carried_over(raw_config: dict[str, Any], root: Path) -> list[str]:
+    """What the generated project takes from the real project, for `--verbose`."""
+    variables = raw_config.get("vars") or {}
+    hooks = [key for key in ("on-run-start", "on-run-end") if key in raw_config]
+    lines = [
+        f"project: {raw_config.get('name')} (profile: {raw_config.get('profile')})",
+        "macro directories: " + ", ".join(str(p) for p in macro_directories(raw_config, root)),
+        "vars: " + (", ".join(sorted(str(k) for k in variables)) or "none"),
+        f"dispatch entries: {len(raw_config.get('dispatch') or [])}",
+        "packages.yml: " + ("copied" if (root / "packages.yml").is_file() else "none"),
+        "run hooks left out: " + (", ".join(hooks) or "none"),
+    ]
+    return lines
+
+
 def generate_project(
-    root: Path, test_dir: Path, spec_files: list[SpecFile], raw_config: dict[str, Any]
+    root: Path,
+    test_dir: Path,
+    spec_files: list[SpecFile],
+    raw_config: dict[str, Any],
+    out_dir: Path,
 ) -> Path:
-    """Write the generated project under <root>/target/macro_test and return it."""
+    """Write the generated project into `out_dir` and return it."""
     packages = root / "packages.yml"
     files = build_files(
         raw_config,
@@ -99,6 +116,5 @@ def generate_project(
         spec_files,
         packages.read_text() if packages.is_file() else None,
     )
-    out_dir = root / GENERATED_DIR
     write_project(files, out_dir)
     return out_dir

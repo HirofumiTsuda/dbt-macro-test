@@ -1,0 +1,10 @@
+macros:
+  - macro: shout
+    cases:
+      - name: from_the_second_macro_path
+        given:
+          arguments:
+            text: hello
+        expect:
+          rows:
+            - {result: HELLO}
