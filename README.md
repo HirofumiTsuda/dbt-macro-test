@@ -263,6 +263,10 @@ uv sync
 uv run pytest
 ```
 
+The tests run on up to four workers (`pytest-xdist`, set in `pyproject.toml`), and the
+end-to-end ones, which run dbt, take most of the time. To run one test, or to see a
+failure without the workers, use `uv run pytest -n 0 path/to/test.py::test_name`.
+
 ## License
 
 [MIT](LICENSE)
