@@ -33,7 +33,7 @@ class InlineRows:
 
     def for_unit_test(self, fixture_formats: Mapping[str, str]) -> InlineExpect:
         """The `expect` of the native unit test."""
-        return {"format": self.format, "rows": self.content}
+        return InlineExpect(format=self.format, rows=self.content)
 
 
 @dataclass(frozen=True)
@@ -47,7 +47,7 @@ class FixtureRef:
         return self.name
 
     def for_unit_test(self, fixture_formats: Mapping[str, str]) -> FixtureExpect:
-        return {"format": fixture_formats[self.name], "fixture": self.name}
+        return FixtureExpect(format=fixture_formats[self.name], fixture=self.name)
 
 
 Expectation = InlineRows | FixtureRef

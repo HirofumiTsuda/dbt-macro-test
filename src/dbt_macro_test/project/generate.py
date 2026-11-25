@@ -11,20 +11,13 @@ from dbt_macro_test.spec import Overrides, SpecFile, UnitTestExpect, to_jinja_li
 
 
 class UnitTest(TypedDict):
-    """One entry of `unit_tests:` in the generated project; the keys are in the order written."""
+    """One entry of `unit_tests:` in the generated project."""
 
     name: str
     model: str
     overrides: NotRequired[Overrides]
     given: list[Any]
     expect: UnitTestExpect
-
-
-def _unit_test(name: str, model: str, overrides: Overrides, expect: UnitTestExpect) -> UnitTest:
-    """A unit test with no input rows; `overrides` is written only when there are some."""
-    if overrides:
-        return {"name": name, "model": model, "overrides": overrides, "given": [], "expect": expect}
-    return {"name": name, "model": model, "given": [], "expect": expect}
 
 
 def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:
@@ -103,8 +96,15 @@ def build_files(
                 if path in files:
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
                 files[path] = case.output.model_sql(call)
-                expect = case.expect.for_unit_test(fixture_formats)
-                unit_tests.append(_unit_test(case.name, name, case.overrides, expect))
+                unit_test = UnitTest(
+                    name=case.name,
+                    model=name,
+                    given=[],
+                    expect=case.expect.for_unit_test(fixture_formats),
+                )
+                if case.overrides:
+                    unit_test["overrides"] = case.overrides
+                unit_tests.append(unit_test)
     files["models/_unit_tests.yml"] = yaml.safe_dump({"unit_tests": unit_tests}, sort_keys=False)
     return files
 
