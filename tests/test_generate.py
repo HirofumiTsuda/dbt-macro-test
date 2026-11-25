@@ -95,6 +95,26 @@ def test_build_files_generates_a_model_and_a_unit_test_per_case(tmp_path: Path) 
     assert "packages.yml" not in files
 
 
+def test_build_files_emits_overrides_into_the_unit_test_unchanged(tmp_path: Path) -> None:
+    overrides: dict[str, dict[str, Any]] = {
+        "macros": {"is_running_in_ci": True},
+        "vars": {"region": "us"},
+    }
+    case = Case(name="c", arguments={}, expect_rows=[], overrides=overrides)
+    spec = SpecFile(tmp_path / "s.yml", [MacroSpec("m", [case])])
+
+    files = build_files(RAW, tmp_path, tmp_path, [spec])
+
+    unit_test = yaml.safe_load(files["models/_unit_tests.yml"])["unit_tests"][0]
+    assert unit_test["overrides"] == overrides
+
+
+def test_build_files_leaves_out_overrides_when_there_are_none(tmp_path: Path) -> None:
+    files = build_files(RAW, tmp_path, tmp_path, [make_spec(tmp_path)])
+
+    assert "overrides" not in yaml.safe_load(files["models/_unit_tests.yml"])["unit_tests"][0]
+
+
 def test_build_files_carries_packages_yml_over(tmp_path: Path) -> None:
     files = build_files(RAW, tmp_path, tmp_path, [], packages_yml="packages: []\n")
 

@@ -62,6 +62,35 @@ Arguments are passed to the macro as values, so a macro that writes
 `{{ b }}` into SQL writes the value as it is: `x` is a column called `x`, and
 `"'x'"` is the string `'x'`.
 
+### Overrides
+
+A case can override what a macro reads from its surroundings, with the same
+`overrides` that dbt's own unit tests have: `vars`, `env_vars`, and `macros`
+(a macro called from the macro under test, or by the generated model, that
+returns the given value instead). Only those three exist in dbt; asking for
+anything else, `target` for instance, is an error.
+
+A macro from a package is overridden under the name it is called by, with the
+package: `spike_utils.hello`. The bare name `hello` does not match it, and
+nothing says so; the case just fails because the override was not applied.
+
+```yaml
+      - name: in_ci_the_schema_gets_a_prefix       # schema_for() calls is_running_in_ci()
+        given:
+          arguments:
+            name: analytics
+        overrides:
+          macros:
+            is_running_in_ci: true
+          vars:
+            region: us
+          env_vars:
+            STAGE: prod
+        expect:
+          rows:
+            - {result: "pr_analytics|us|prod"}
+```
+
 ### Arguments
 
 Arguments are given by name. Before dbt is run, they are checked against the
