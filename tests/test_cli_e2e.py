@@ -387,6 +387,30 @@ def test_a_package_macro_is_not_overridden_under_its_bare_name(
     assert "1 failed" in result.output
 
 
+def test_run_passes_for_macros_that_return_a_whole_query(project: Path) -> None:
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "queries.yml")])
+
+    assert result.exit_code == 0, result.output
+    assert "3 passed" in result.output
+
+
+def test_a_query_with_a_wrong_row_fails(project: Path) -> None:
+    (project / "macro_test" / "wrong_rows.yml").write_text(
+        "macros:\n"
+        "  - macro: union_two\n"
+        "    cases:\n"
+        "      - name: one_row_missing\n"
+        "        given: {arguments: {a: '(select 1 as id)', b: '(select 2 as id)'}}\n"
+        "        output: query\n"
+        "        expect: {rows: [{id: 1}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "wrong_rows.yml")])
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     (project / "macro_test" / "wrong.yml").write_text(
         "macros:\n"

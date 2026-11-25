@@ -56,7 +56,27 @@ as the column names in `expect.rows`:
             - {first: 1, second: x}
 ```
 
-`output: query` (a macro that returns a whole SELECT) is not supported yet.
+`output: query` is for a macro that returns a whole SELECT (it may start with a
+`with`, or end with a comment). The query is the model, and `expect.rows` gives
+the rows it should return: any number of rows and columns, compared by dbt in any
+order. A macro that takes a relation can be handed a subquery, since the
+argument is written into the SQL as it is:
+
+```yaml
+      - name: stacks_two_relations
+        given:
+          arguments:
+            a: "(select 1 as id)"
+            b: "(select 2 as id)"
+        output: query
+        expect:
+          rows:
+            - {id: 1}
+            - {id: 2}
+```
+
+A relation that exists only in the project (a model, a source) needs the inputs
+a unit test gives to `ref()` and `source()`, which are not supported yet.
 
 Arguments are passed to the macro as values, so a macro that writes
 `{{ b }}` into SQL writes the value as it is: `x` is a column called `x`, and
