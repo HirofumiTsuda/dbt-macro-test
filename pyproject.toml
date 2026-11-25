@@ -1,8 +1,9 @@
 [project]
 name = "dbt-macro-test"
 version = "0.1.0"
-description = "Add your description here"
+description = "Unit tests for dbt macros, built on dbt's native unit tests"
 readme = "README.md"
+license = "MIT"
 authors = [
     { name = "Hirofumi Tsuda" }
 ]
