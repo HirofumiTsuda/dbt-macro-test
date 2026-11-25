@@ -154,47 +154,56 @@ def _parse_overrides(value: Any, path: Path, where: str) -> dict[str, dict[str, 
     }
 
 
-def _parse_case(entry: Any, path: Path, where: str) -> Case:
-    body = _mapping(
-        entry, path, where, required=["name", "expect"], optional=["given", "output", "overrides"]
-    )
-    name = body["name"]
-    if not isinstance(name, str) or not _IDENTIFIER.match(name):
-        raise _fail(path, f"{where}.name", f"{name!r} is not a valid name (letters, digits, _)")
+def _parse_name(value: Any, path: Path, where: str) -> str:
+    if not isinstance(value, str) or not _IDENTIFIER.match(value):
+        raise _fail(path, f"{where}.name", f"{value!r} is not a valid name (letters, digits, _)")
+    return value
 
+
+def _parse_output(value: Any, path: Path, where: str) -> Output:
     try:
-        output = Output.parse(body.get("output", Output.EXPRESSION.label))
+        return Output.parse(value)
     except ValueError as e:
         raise _fail(path, f"{where}.output", str(e)) from e
 
+
+def _parse_given(value: Any, path: Path, where: str) -> dict[str, Any]:
+    """The arguments of the case; `given` may also be left out, or have none."""
+    given = _mapping(value, path, f"{where}.given", optional=["arguments"])
+    if "arguments" not in given:
+        return {}
+    arguments = _mapping(given["arguments"], path, f"{where}.given.arguments", any_keys=True)
+    for key in arguments:
+        if not isinstance(key, str) or not _IDENTIFIER.match(key):
+            raise _fail(path, f"{where}.given.arguments", f"{key!r} is not an argument name")
+    return {
+        key: _parse_argument(argument, path, f"{where}.given.arguments.{key}")
+        for key, argument in arguments.items()
+    }
+
+
+def _parse_expect_rows(value: Any, path: Path, where: str) -> list[dict[str, Any]]:
+    expect = _mapping(value, path, f"{where}.expect", required=["rows"])
+    rows = _list(expect["rows"], path, f"{where}.expect.rows")
+    for i, row in enumerate(rows):
+        _mapping(row, path, f"{where}.expect.rows[{i}]", any_keys=True)
+    return rows
+
+
+def _parse_case(entry: Any, path: Path, where: str) -> Case:
+    """A case is its name, what it expects, and optionally the rest, checked in that order."""
+    body = _mapping(
+        entry, path, where, required=["name", "expect"], optional=["given", "output", "overrides"]
+    )
+    name = _parse_name(body["name"], path, where)
+    output = _parse_output(body.get("output", Output.EXPRESSION.label), path, where)
     overrides = (
         _parse_overrides(body["overrides"], path, f"{where}.overrides")
         if "overrides" in body
         else {}
     )
-
-    arguments: dict[str, Any] = {}
-    if "given" in body:
-        given = _mapping(body["given"], path, f"{where}.given", optional=["arguments"])
-        if "arguments" in given:
-            arguments = _mapping(
-                given["arguments"], path, f"{where}.given.arguments", any_keys=True
-            )
-            for key in arguments:
-                if not isinstance(key, str) or not _IDENTIFIER.match(key):
-                    raise _fail(
-                        path, f"{where}.given.arguments", f"{key!r} is not an argument name"
-                    )
-            arguments = {
-                key: _parse_argument(value, path, f"{where}.given.arguments.{key}")
-                for key, value in arguments.items()
-            }
-
-    expect = _mapping(body["expect"], path, f"{where}.expect", required=["rows"])
-    rows = _list(expect["rows"], path, f"{where}.expect.rows")
-    for i, row in enumerate(rows):
-        _mapping(row, path, f"{where}.expect.rows[{i}]", any_keys=True)
-
+    arguments = _parse_given(body["given"], path, where) if "given" in body else {}
+    rows = _parse_expect_rows(body["expect"], path, where)
     return Case(
         name=name, arguments=arguments, expect_rows=rows, output=output, overrides=overrides
     )
