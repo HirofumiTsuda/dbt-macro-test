@@ -353,6 +353,40 @@ def test_run_rejects_an_override_dbt_does_not_have(project: Path) -> None:
     )
 
 
+def write_greet_case_overriding(project: Path, macro_key: str) -> Path:
+    spec = project / "macro_test" / "package_override.yml"
+    spec.write_text(
+        "macros:\n"
+        "  - macro: greet\n"
+        "    cases:\n"
+        "      - name: overrides_a_package_macro\n"
+        f"        overrides: {{macros: {{{macro_key}: overridden}}}}\n"
+        "        expect: {rows: [{result: overridden}]}\n"
+    )
+    return spec
+
+
+def test_a_package_macro_is_overridden_under_its_qualified_name(
+    project_with_packages: Path,
+) -> None:
+    spec = write_greet_case_overriding(project_with_packages, "spike_utils.hello")
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_a_package_macro_is_not_overridden_under_its_bare_name(
+    project_with_packages: Path,
+) -> None:
+    spec = write_greet_case_overriding(project_with_packages, "hello")
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output
+
+
 def test_run_fails_when_a_case_does_not_match(project: Path) -> None:
     (project / "macro_test" / "wrong.yml").write_text(
         "macros:\n"
