@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from dbt.cli.main import dbtRunner
 
 from dbt_macro_test.cli import main
 
@@ -206,3 +207,68 @@ def test_the_run_hooks_of_the_project_do_not_run(project: Path) -> None:
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "greeting.yml")])
 
     assert result.exit_code == 0, result.output
+
+
+FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture
+def project_with_packages(tmp_path: Path) -> Path:
+    shutil.copytree(FIXTURES / "packages", tmp_path / "packages")
+    destination = tmp_path / "project"
+    shutil.copytree(FIXTURES / "project_with_packages", destination)
+    return destination
+
+
+def install_packages(project: Path) -> None:
+    result = dbtRunner().invoke(
+        ["deps", "--project-dir", str(project), "--profiles-dir", str(project)]
+    )
+    assert result.success, result.exception
+
+
+def test_run_installs_packages_and_keeps_the_projects_dispatch(project_with_packages: Path) -> None:
+    result = CliRunner().invoke(
+        main, ["run", "--verbose", str(project_with_packages / "macro_test")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "packages: packages.yml copied (dbt deps is run)" in result.output
+    assert not (project_with_packages / "dbt_packages").exists()
+
+
+def test_run_reuses_installed_packages_without_touching_them(
+    project_with_packages: Path,
+) -> None:
+    install_packages(project_with_packages)
+    installed = project_with_packages / "dbt_packages"
+    before = sorted(p.name for p in installed.iterdir())
+    modified = {p: p.stat().st_mtime_ns for p in installed.rglob("*") if p.is_file()}
+
+    result = CliRunner().invoke(
+        main,
+        ["run", "--verbose", "--keep-generated", str(project_with_packages / "macro_test")],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert f"packages: reusing {installed.resolve()} (dbt deps is not run)" in result.output
+    kept = Path(result.output.split("Generated project kept at ")[1].strip())
+    try:
+        assert not (kept / "dbt_packages").exists()
+    finally:
+        shutil.rmtree(kept, ignore_errors=True)
+    assert sorted(p.name for p in installed.iterdir()) == before
+    assert {p: p.stat().st_mtime_ns for p in installed.rglob("*") if p.is_file()} == modified
+
+
+def test_run_stops_when_the_installed_packages_do_not_match_packages_yml(
+    project_with_packages: Path,
+) -> None:
+    install_packages(project_with_packages)
+    packages_yml = project_with_packages / "packages.yml"
+    packages_yml.write_text(packages_yml.read_text() + "  - local: ../packages/other_utils\n")
+
+    result = CliRunner().invoke(main, ["run", str(project_with_packages / "macro_test")])
+
+    assert result.exit_code == 1
+    assert "Error: dbt test could not run; see dbt's message above" in result.output

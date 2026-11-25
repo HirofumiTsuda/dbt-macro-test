@@ -1,0 +1,16 @@
+macros:
+  - macro: greet
+    cases:
+      - name: the_projects_dispatch_override_wins
+        expect:
+          rows:
+            - {result: "user:a"}
+  - macro: doubled
+    cases:
+      - name: calls_a_package_macro
+        given:
+          arguments:
+            x: 21
+        expect:
+          rows:
+            - {result: 42}

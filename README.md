@@ -102,6 +102,16 @@ in a temporary directory and run by dbt itself, so the output and the diff
 on failure are dbt's own. The project's `vars`, `dispatch` and `macro-paths`
 are carried over; its `on-run-start` / `on-run-end` hooks are not run.
 
+Packages: if the project has a `packages.yml` and its packages are already
+installed (in `dbt_packages/`, or where `packages-install-path` says), they are
+used as they are and `dbt deps` is not run, so nothing in your installed
+packages is changed. Otherwise `packages.yml` is copied, with any relative
+`local:` path made absolute, and `dbt deps` runs in the temporary directory.
+dbt checks only that the number of installed packages matches `packages.yml`,
+so a package that was added or removed without running `dbt deps` makes dbt
+stop with its own message, but a package whose *version* was changed does not:
+run `dbt deps` before `dbt-macro-test run`, as a CI job normally does.
+
 Not on PyPI yet. To try it from a checkout of this repository, run this from
 the root of your dbt project:
 
