@@ -1,0 +1,122 @@
+name: Release
+
+# A tag `vX.Y.Z` builds the package, checks it, installs it into a clean environment and
+# runs it on a project, and then, after an approval, publishes it to PyPI. Nothing is published
+# without the approval of the `pypi` environment. See docs/releasing.md.
+#
+# The build and the smoke test also run for a pull request that touches what a release is made
+# of, so that a broken package is found before the tag.
+#
+# A manual run (workflow_dispatch) publishes to TestPyPI, as a dry run of the whole thing.
+
+on:
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+*"]
+  pull_request:
+    paths:
+      - pyproject.toml
+      - CHANGELOG.md
+      - .github/workflows/release.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - name: The version, the tag and the changelog agree
+        run: |
+          version=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml', 'rb'))['project']['version'])")
+          echo "pyproject.toml says $version"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            [ "$GITHUB_REF_NAME" = "v$version" ] || { echo "::error::the tag is $GITHUB_REF_NAME, pyproject.toml says $version"; exit 1; }
+          fi
+          grep -qE "^## \[$version\]" CHANGELOG.md || { echo "::error::CHANGELOG.md has no heading '## [$version]'"; exit 1; }
+
+      - run: uv build
+
+      - name: The distributions are well formed, and hold what they should
+        run: |
+          uvx twine check --strict dist/*
+          unzip -l dist/*.whl | grep -E "dbt_macro_test/py\.typed"
+          unzip -l dist/*.whl | grep -E "licenses/LICENSE"
+          tar -tzf dist/*.tar.gz | grep -E "/LICENSE$"
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  smoke:
+    # What was built, not the checkout, installed into a clean environment and run on a project.
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [wheel, sdist]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - name: Install it into a new environment
+        run: |
+          uv venv --python 3.12 "$RUNNER_TEMP/venv"
+          if [ "${{ matrix.kind }}" = wheel ]; then file=$(ls dist/*.whl); else file=$(ls dist/*.tar.gz); fi
+          uv pip install --python "$RUNNER_TEMP/venv/bin/python" dbt-duckdb "$file"
+
+      - name: It is the installed package that runs
+        run: |
+          "$RUNNER_TEMP/venv/bin/python" -c "import dbt_macro_test; print(dbt_macro_test.__file__)" | tee /dev/stderr | grep -q site-packages
+          "$RUNNER_TEMP/venv/bin/dbt-macro-test" --help
+
+      - name: Run it on a project
+        run: |
+          cp -r tests/fixtures/project "$RUNNER_TEMP/project"
+          cd "$RUNNER_TEMP/project"
+          "$RUNNER_TEMP/venv/bin/dbt-macro-test" run
+
+  testpypi:
+    if: github.event_name == 'workflow_dispatch'
+    needs: smoke
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  pypi:
+    if: github.ref_type == 'tag'
+    needs: smoke
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
