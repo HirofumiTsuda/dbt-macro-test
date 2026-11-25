@@ -6,7 +6,6 @@ from dbt_macro_test.engine.judge import (
     judge_error,
     judge_warning,
 )
-from dbt_macro_test.engine.macros import load_macro, load_macro_from_manifest
 from dbt_macro_test.engine.runner import (
     CaseResult,
     DbtError,
@@ -23,7 +22,6 @@ from dbt_macro_test.engine.signature import (
     signatures_in,
 )
 from dbt_macro_test.engine.validate import check_arguments
-from dbt_macro_test.engine.warehouse import connect_project, execute_sql
 
 __all__ = [
     "CaseResult",
@@ -33,16 +31,12 @@ __all__ = [
     "Signature",
     "Verdict",
     "check_arguments",
-    "connect_project",
     "error_text",
     "errors_in",
-    "execute_sql",
     "find_signatures",
     "invoke_unit_tests",
     "judge_error",
     "judge_warning",
-    "load_macro",
-    "load_macro_from_manifest",
     "problems_with",
     "read_project_config",
     "run_deps",

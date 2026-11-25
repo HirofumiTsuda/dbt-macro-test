@@ -228,9 +228,10 @@ Each of these has an issue.
 - Adapters other than duckdb: the tool leaves the work to dbt, so others may well work, but
   none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
 
-The tool reaches into dbt-core's own modules (`dbtRunner`, the manifest, the macro generator),
-which are not a documented interface; the suite is run on dbt-core 1.8 and on the newest one in
-CI to find where they differ.
+The tool runs dbt through `dbtRunner`, dbt's programmatic entry point. It also reads two things
+that are not a documented interface: the project file, with `dbt.config.project.load_raw_project`,
+and the fields of the results and events of a run. A new dbt-core may change them; the suite is
+run on dbt-core 1.8 and on the newest one in CI to find where they differ.
 
 ## Development
 
