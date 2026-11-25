@@ -44,8 +44,9 @@ jobs:
       - name: The distributions are well formed, and hold what they should
         run: |
           uvx twine check --strict dist/*
-          unzip -l dist/*.whl | grep -E "py\.typed|LICENSE"
-          tar -tzf dist/*.tar.gz | grep -E "LICENSE"
+          unzip -l dist/*.whl | grep -E "dbt_macro_test/py\.typed"
+          unzip -l dist/*.whl | grep -E "licenses/LICENSE"
+          tar -tzf dist/*.tar.gz | grep -E "/LICENSE$"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
