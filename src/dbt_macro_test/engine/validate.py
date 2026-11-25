@@ -1,7 +1,7 @@
 from collections.abc import Collection
 from pathlib import Path
 
-from dbt_macro_test.signature import find_signatures, problems_with
+from dbt_macro_test.engine.signature import find_signatures, problems_with
 from dbt_macro_test.spec import SpecFile
 
 

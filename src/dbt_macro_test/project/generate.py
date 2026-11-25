@@ -5,9 +5,8 @@ from typing import Any
 
 import yaml
 
-from dbt_macro_test.literals import to_jinja_literal
-from dbt_macro_test.packages import with_absolute_local_paths
-from dbt_macro_test.spec import SpecFile
+from dbt_macro_test.project.packages import with_absolute_local_paths
+from dbt_macro_test.spec import SpecFile, to_jinja_literal
 
 
 def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:

@@ -1,4 +1,8 @@
-from dbt_macro_test.macros import load_macro, load_macro_from_manifest
-from dbt_macro_test.warehouse import connect_project, execute_sql
+from dbt_macro_test.engine import (
+    connect_project,
+    execute_sql,
+    load_macro,
+    load_macro_from_manifest,
+)
 
 __all__ = ["connect_project", "execute_sql", "load_macro", "load_macro_from_manifest"]

@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from dbt_macro_test.discovery import (
+from dbt_macro_test.project import (
     ProfilesChoice,
     ProjectNotFoundError,
     find_project_root,

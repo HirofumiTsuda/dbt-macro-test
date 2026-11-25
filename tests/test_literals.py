@@ -2,7 +2,7 @@ from typing import Any
 
 import pytest
 
-from dbt_macro_test.literals import JinjaExpression, to_jinja_literal
+from dbt_macro_test.spec import JinjaExpression, to_jinja_literal
 
 
 @pytest.mark.parametrize(

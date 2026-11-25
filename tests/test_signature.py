@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from dbt_macro_test.signature import Signature, find_signatures, problems_with, signatures_in
+from dbt_macro_test.engine import Signature, find_signatures, problems_with, signatures_in
 
 
 def test_required_and_optional_parameters_are_told_apart() -> None:

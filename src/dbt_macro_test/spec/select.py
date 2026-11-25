@@ -2,7 +2,7 @@ from collections.abc import Collection
 from dataclasses import replace
 from fnmatch import fnmatchcase
 
-from dbt_macro_test.spec import SpecFile
+from dbt_macro_test.spec.spec import SpecFile
 
 
 def case_id(macro: str, case: str) -> str:

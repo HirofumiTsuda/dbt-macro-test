@@ -7,20 +7,25 @@ from pathlib import Path
 from typing import Any
 
 import click
-from dbt.config.project import load_raw_project
 
-from dbt_macro_test.discovery import (
+from dbt_macro_test.engine import (
+    DbtError,
+    RunOutcome,
+    check_arguments,
+    read_project_config,
+    run_unit_tests,
+)
+from dbt_macro_test.project import (
     ProfilesChoice,
     ProjectNotFoundError,
+    carried_over,
+    generate_project,
+    installed_packages_dir,
+    macro_directories,
     resolve_profiles_dir,
     resolve_project_root,
 )
-from dbt_macro_test.generate import carried_over, generate_project, macro_directories
-from dbt_macro_test.packages import installed_packages_dir
-from dbt_macro_test.runner import DbtError, RunOutcome, run_unit_tests
-from dbt_macro_test.select import case_ids, select_cases
-from dbt_macro_test.spec import SpecError, SpecFile, load_specs
-from dbt_macro_test.validate import check_arguments
+from dbt_macro_test.spec import SpecError, SpecFile, case_ids, load_specs, select_cases
 
 
 class CouldNotRun(click.ClickException):
@@ -110,7 +115,7 @@ def run(
             click.echo(identifier)
         return
 
-    raw_config = load_raw_project(str(root))
+    raw_config = read_project_config(root)
     _check_arguments(spec_files, raw_config, root)
 
     profiles = resolve_profiles_dir(profiles_dir, root, os.environ)
