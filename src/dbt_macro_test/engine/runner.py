@@ -1,9 +1,11 @@
+import os
 import re
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from dbt.cli.main import dbtRunner
+from dbt.cli.main import dbtRunner, dbtRunnerResult
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -53,6 +55,22 @@ class RawRun:
     warnings: list[str] = field(default_factory=list)
 
 
+def invoke_dbt(
+    args: list[str], callbacks: list[Callable[[Any], None]] | None = None
+) -> dbtRunnerResult:
+    """Run one dbt command in this process, and leave the working directory where it was.
+
+    dbt 1.8 moves into the project directory and stays there; the directory of a generated
+    project is deleted when the run is over, and the next dbt command, which asks for the
+    working directory, would fail. Later versions put it back themselves.
+    """
+    here = os.getcwd()
+    try:
+        return dbtRunner(callbacks=callbacks or []).invoke(args)
+    finally:
+        os.chdir(here)
+
+
 def _common_args(project_dir: Path, profiles_dir: Path | None, target: str | None) -> list[str]:
     common = ["--project-dir", str(project_dir)]
     if profiles_dir is not None:
@@ -66,7 +84,7 @@ def run_deps(
     project_dir: Path, *, profiles_dir: Path | None = None, target: str | None = None
 ) -> None:
     """`dbt deps` for a generated project."""
-    deps = dbtRunner().invoke(["deps", *_common_args(project_dir, profiles_dir, target)])
+    deps = invoke_dbt(["deps", *_common_args(project_dir, profiles_dir, target)])
     if deps.exception is not None:
         raise DbtError("deps", deps.exception)
 
@@ -95,7 +113,7 @@ def invoke_unit_tests(
             if text not in warnings:
                 warnings.append(text)
 
-    result = dbtRunner(callbacks=[collect]).invoke(args)
+    result = invoke_dbt(args, [collect])
     results = []
     for item in getattr(result.result, "results", []):
         status = str(getattr(item.status, "value", item.status))

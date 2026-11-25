@@ -281,7 +281,11 @@ uv run --project <path to this checkout> dbt-macro-test run
 
 ## Development
 
-The tool supports Python 3.11 and later (3.11 to 3.14 are tested in CI).
+The tool supports Python 3.11 and later (3.11 to 3.14 are tested in CI) and dbt-core 1.8
+and later, up to but not including 2.0: dbt's native unit tests, which it is built on, exist
+since 1.8. CI runs the whole suite on the newest dbt-core the lock file holds and on 1.8; 1.9,
+1.10, 1.11 and 1.12 were each run once by hand and passed. The adapter is the one the project
+uses; only duckdb has been tried.
 Development needs [uv](https://docs.astral.sh/uv/).
 
 ```bash
