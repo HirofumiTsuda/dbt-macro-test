@@ -1,0 +1,32 @@
+macros:
+  - macro: pick
+    cases:
+      - name: keeps_only_the_listed_columns
+        given:
+          arguments:
+            relation: "(select 1 as id, 'a' as name, 'secret' as pw union all select 2, 'b', 'secret')"
+            columns: [id, name]
+        output: query
+        expect:
+          rows:
+            - {id: 1, name: a}
+            - {id: 2, name: b}
+  - macro: union_two
+    cases:
+      - name: stacks_two_relations_in_any_order
+        given:
+          arguments:
+            a: "(select 1 as id)"
+            b: "(select 2 as id)"
+        output: query
+        expect:
+          rows:
+            - {id: 2}
+            - {id: 1}
+  - macro: commented
+    cases:
+      - name: a_query_that_starts_with_a_cte_and_ends_with_a_comment
+        output: query
+        expect:
+          rows:
+            - {n: 1, name: one}

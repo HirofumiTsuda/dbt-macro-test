@@ -6,6 +6,7 @@ class Output(Enum):
 
     EXPRESSION = ("expression", "select ", " as result")
     COLUMNS = ("columns", "select ", "")
+    QUERY = ("query", "", "")
 
     label: str
     before: str

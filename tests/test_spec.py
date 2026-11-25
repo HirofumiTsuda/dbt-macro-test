@@ -41,6 +41,16 @@ def test_valid_spec_is_loaded(tmp_path: Path) -> None:
     assert no_arguments.expect_rows == []
 
 
+def test_output_can_be_query(tmp_path: Path) -> None:
+    text = (
+        "macros:\n  - macro: x\n    cases:\n      - {name: a, output: query, expect: {rows: []}}\n"
+    )
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert case.output is Output.QUERY
+
+
 def test_output_defaults_to_expression_and_can_be_columns(tmp_path: Path) -> None:
     text = (
         "macros:\n"
@@ -158,12 +168,8 @@ def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:
         ("macros: 1", "macros: must be a list"),
         ("{}", "missing required key 'macros'"),
         (
-            "macros:\n  - {macro: x, cases: [{name: a, output: query, expect: {rows: []}}]}",
-            "'query' is not one of: expression, columns",
-        ),
-        (
             "macros:\n  - {macro: x, cases: [{name: a, output: nope, expect: {rows: []}}]}",
-            "'nope' is not one of: expression, columns",
+            "'nope' is not one of: expression, columns, query",
         ),
         ("other: 1", "unknown key(s): other"),
         ("macros:\n  - macro: x", "missing required key 'cases'"),

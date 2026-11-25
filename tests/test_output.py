@@ -11,6 +11,10 @@ def test_columns_bring_their_own_names() -> None:
     assert Output.COLUMNS.model_sql("m()") == "select {{ m() }}\n"
 
 
+def test_a_query_is_the_whole_model() -> None:
+    assert Output.QUERY.model_sql("m()") == "{{ m() }}\n"
+
+
 @pytest.mark.parametrize("member", list(Output))
 def test_every_output_can_be_parsed_from_its_label(member: Output) -> None:
     assert Output.parse(member.label) is member
@@ -18,5 +22,5 @@ def test_every_output_can_be_parsed_from_its_label(member: Output) -> None:
 
 @pytest.mark.parametrize("label", ["nope", "", None, 1])
 def test_an_unknown_label_names_the_allowed_ones(label: object) -> None:
-    with pytest.raises(ValueError, match="is not one of: expression, columns"):
+    with pytest.raises(ValueError, match="is not one of: expression, columns, query"):
         Output.parse(label)
