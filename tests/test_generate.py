@@ -11,7 +11,7 @@ from dbt_macro_test.project import (
     project_config,
     write_project,
 )
-from dbt_macro_test.spec import Case, InlineRows, MacroSpec, SpecFile
+from dbt_macro_test.spec import Case, InlineRows, MacroSpec, Overrides, SpecFile
 
 RAW: dict[str, Any] = {
     "name": "shop",
@@ -98,10 +98,7 @@ def test_build_files_generates_a_model_and_a_unit_test_per_case(tmp_path: Path) 
 
 
 def test_build_files_emits_overrides_into_the_unit_test_unchanged(tmp_path: Path) -> None:
-    overrides: dict[str, dict[str, Any]] = {
-        "macros": {"is_running_in_ci": True},
-        "vars": {"region": "us"},
-    }
+    overrides = Overrides(macros={"is_running_in_ci": True}, vars={"region": "us"})
     case = Case(name="c", arguments={}, expect=InlineRows("dict", []), overrides=overrides)
     spec = SpecFile(tmp_path / "s.yml", [MacroSpec("m", [case])])
 

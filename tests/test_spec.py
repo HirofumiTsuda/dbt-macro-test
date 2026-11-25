@@ -7,6 +7,7 @@ from dbt_macro_test.spec import (
     InlineRows,
     JinjaExpression,
     Output,
+    Overrides,
     SpecError,
     find_spec_files,
     load_spec_file,
@@ -208,6 +209,10 @@ def test_invalid_overrides_are_reported(tmp_path: Path, overrides: str, message:
         load_spec_file(write(tmp_path, text))
 
     assert message in str(error.value)
+
+
+def test_the_kinds_of_override_come_from_the_typed_dict_and_are_the_three_dbt_has() -> None:
+    assert tuple(Overrides.__annotations__) == ("macros", "vars", "env_vars")
 
 
 def test_package_qualified_macro_name_is_accepted(tmp_path: Path) -> None:

@@ -1,13 +1,30 @@
 import re
 import shutil
 from pathlib import Path
-from typing import Any
+from typing import Any, NotRequired, TypedDict
 
 import yaml
 
 from dbt_macro_test.project.fixtures import Fixture, find_fixtures
 from dbt_macro_test.project.packages import with_absolute_local_paths
-from dbt_macro_test.spec import SpecFile, to_jinja_literal
+from dbt_macro_test.spec import Overrides, SpecFile, UnitTestExpect, to_jinja_literal
+
+
+class UnitTest(TypedDict):
+    """One entry of `unit_tests:` in the generated project; the keys are in the order written."""
+
+    name: str
+    model: str
+    overrides: NotRequired[Overrides]
+    given: list[Any]
+    expect: UnitTestExpect
+
+
+def _unit_test(name: str, model: str, overrides: Overrides, expect: UnitTestExpect) -> UnitTest:
+    """A unit test with no input rows; `overrides` is written only when there are some."""
+    if overrides:
+        return {"name": name, "model": model, "overrides": overrides, "given": [], "expect": expect}
+    return {"name": name, "model": model, "given": [], "expect": expect}
 
 
 def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:
@@ -76,7 +93,7 @@ def build_files(
     if packages_yml is not None:
         files["packages.yml"] = with_absolute_local_paths(packages_yml, root)
 
-    unit_tests: list[dict[str, Any]] = []
+    unit_tests: list[UnitTest] = []
     for spec_file in spec_files:
         for macro_spec in spec_file.macros:
             for case in macro_spec.cases:
@@ -86,12 +103,8 @@ def build_files(
                 if path in files:
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
                 files[path] = case.output.model_sql(call)
-                unit_test: dict[str, Any] = {"name": case.name, "model": name}
-                if case.overrides:
-                    unit_test["overrides"] = case.overrides
-                unit_test["given"] = []
-                unit_test["expect"] = case.expect.for_unit_test(fixture_formats)
-                unit_tests.append(unit_test)
+                expect = case.expect.for_unit_test(fixture_formats)
+                unit_tests.append(_unit_test(case.name, name, case.overrides, expect))
     files["models/_unit_tests.yml"] = yaml.safe_dump({"unit_tests": unit_tests}, sort_keys=False)
     return files
 

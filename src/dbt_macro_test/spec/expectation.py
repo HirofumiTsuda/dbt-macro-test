@@ -1,6 +1,23 @@
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypedDict
+
+
+class InlineExpect(TypedDict):
+    """The `expect` of a native unit test whose rows are written out."""
+
+    format: str
+    rows: list[dict[str, Any]] | str
+
+
+class FixtureExpect(TypedDict):
+    """The `expect` of a native unit test whose rows are in a fixture file."""
+
+    format: str
+    fixture: str
+
+
+UnitTestExpect = InlineExpect | FixtureExpect
 
 
 @dataclass(frozen=True)
@@ -14,7 +31,7 @@ class InlineRows:
     def fixture_name(self) -> None:
         return None
 
-    def for_unit_test(self, fixture_formats: Mapping[str, str]) -> dict[str, Any]:
+    def for_unit_test(self, fixture_formats: Mapping[str, str]) -> InlineExpect:
         """The `expect` of the native unit test."""
         return {"format": self.format, "rows": self.content}
 
@@ -29,7 +46,7 @@ class FixtureRef:
     def fixture_name(self) -> str:
         return self.name
 
-    def for_unit_test(self, fixture_formats: Mapping[str, str]) -> dict[str, Any]:
+    def for_unit_test(self, fixture_formats: Mapping[str, str]) -> FixtureExpect:
         return {"format": fixture_formats[self.name], "fixture": self.name}
 
 
