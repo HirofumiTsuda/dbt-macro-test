@@ -57,6 +57,21 @@ in the release pull request:
 Ask the user about the wording of the Status line, and say that the install line cannot be tried
 before the package is on PyPI (so the first minutes after the publication are when it is checked).
 
+## The `pypi` environment must exist, with a reviewer, before any tag
+
+**This is what makes "waits for the approval" true.** If the job names an environment that does not
+exist, GitHub creates it on the first run **with no protection**, and the job goes on at once; the
+trusted publisher on PyPI would accept it, and the version would be published without anyone
+approving it. (The environment `testpypi` was made that way by the first dry run, and has no rule.)
+So, before asking for or pushing a tag, run
+
+```bash
+gh api repos/HirofumiTsuda/dbt-macro-test/environments --jq '.environments[] | {name, reviewers: [.protection_rules[]? | select(.type == "required_reviewers") | .reviewers[]?.reviewer.login]}'
+```
+
+and do not go on unless `pypi` is there with the user as a reviewer. When it is not (it was not,
+on 2026-11-25), say so, and **ask** before creating it: the user, as reviewer, is the approval.
+
 ## Settings, once (the user's)
 
 Pending trusted publishers on PyPI and TestPyPI (project `dbt-macro-test`, owner `HirofumiTsuda`,

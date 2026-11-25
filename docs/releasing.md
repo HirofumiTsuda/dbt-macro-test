@@ -16,7 +16,10 @@ These are settings of PyPI and GitHub, not of the repository, and are the mainta
    with the environment `testpypi`.
 2. **GitHub environments** (Settings, Environments): `pypi`, with *Required reviewers* set to
    the maintainer (this is the approval), and, if wanted, a rule that only tags may deploy to it;
-   and `testpypi`.
+   and `testpypi`. **Make `pypi` before the first tag.** A job that names an environment that does
+   not exist makes it on the spot with no rule, and then does not wait for anyone: the release
+   would be published without the approval. (`testpypi` was made that way by the first dry run.)
+   Check with `gh api repos/HirofumiTsuda/dbt-macro-test/environments`.
 3. **A dry run on TestPyPI**: Actions, Release, *Run workflow*, on a branch whose `pyproject.toml`
    has a version that TestPyPI has not seen (such as `0.1.0.dev1`, with a matching heading in
    `CHANGELOG.md`). It runs the whole of the release except the last step, and publishes to TestPyPI.
