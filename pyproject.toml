@@ -2,6 +2,21 @@
 name = "dbt-macro-test"
 version = "0.1.0"
 description = "Unit tests for dbt macros, built on dbt's native unit tests"
+keywords = ["dbt", "macro", "jinja", "sql", "testing", "unit-test"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 readme = "README.md"
 license = "MIT"
 authors = [
@@ -13,6 +28,12 @@ dependencies = [
     "dbt-core>=1.8,<2",
     "pyyaml>=6",
 ]
+
+[project.urls]
+Repository = "https://github.com/HirofumiTsuda/dbt-macro-test"
+Issues = "https://github.com/HirofumiTsuda/dbt-macro-test/issues"
+Changelog = "https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md"
 
 [project.scripts]
 dbt-macro-test = "dbt_macro_test.cli:main"
