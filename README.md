@@ -162,9 +162,12 @@ temporary directory.
 ## Using it in CI
 
 The tool needs what `dbt test` needs: the adapter installed, a `profiles.yml`, and a connection
-to the warehouse in it. **Unit tests run against the warehouse**: dbt creates a temporary table
-for each case and drops it (seen in dbt's log), so the credentials need the same rights as for a
-`dbt run`, on a schema you can write to.
+to the warehouse in it. **Unit tests run against the warehouse**: dbt's unit-test
+materialization creates a temporary relation for each case, to read the types of the columns, and
+drops it (`unit.sql` in dbt-core's global project, which an adapter may override; dbt-duckdb does
+not). What exactly is sent is the adapter's `create_table_as`, and only duckdb's has been seen
+(`create temporary table`, in dbt's log), so plan for the credentials to need the rights of a
+`dbt run` on a schema you can write to.
 
 ```yaml
 # .github/workflows/macro-test.yml
