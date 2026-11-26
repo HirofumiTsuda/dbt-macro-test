@@ -1,13 +1,16 @@
 # The demo of the README
 
 `demo.gif` is the animation at the top of the README. It is a recording of a real session, not a
-drawing: `demo.sh` types each command on the screen and then runs it for real, in the project of the
-quick start (a dbt project with a duckdb profile, the macro `safe_divide`, and its spec). The second
-run fails because the script changes one expected value with `sed`.
+drawing: `demo.sh` types each command on the screen and then runs it for real, in a copy of
+[`dev/sample_project`](../../dev/sample_project) (26 cases). It lists the cases (`run --list`), runs
+all of them and shows the end of the output (`26 passed`), then changes one expected value with
+`sed` and runs that case, which fails with dbt's diff (`run --select safe_divide::divides`). The
+long names of the cases would wrap in a terminal this wide, so the whole run is not shown line by
+line.
 
 | File | What it is |
 |---|---|
-| `demo.sh` | The script that was recorded (it expects the quick-start project in `shop/` next to it) |
+| `demo.sh` | The script that was recorded (it expects a copy of `dev/sample_project` in `shop/` next to it, and a `bin/dbt-macro-test` that runs the checkout's) |
 | `demo.cast` | The recording, in asciinema's format; `uvx asciinema play docs/images/demo.cast` replays it |
 | `demo.gif` | `demo.cast` converted to a GIF |
 | `social-preview.png` | The image GitHub shows when the repository is linked (1280x640). It is uploaded by hand: Settings, General, Social preview; GitHub has no API for it |
@@ -21,7 +24,7 @@ frame, with nothing typed or edited); only the tagline and the install command n
 When `demo.gif` is made again, make this image again too.
 
 To make it again, the steps are in the skill `.claude/skills/record-demo/SKILL.md` (for Claude, with what to check
-in the frames). By hand, with the project in `shop/` next to `demo.sh` and `dbt-macro-test` on the `PATH`:
+in the frames). By hand, with a copy of the sample project in `shop/` next to `demo.sh` and `dbt-macro-test` on the `PATH`:
 
 ```bash
 uvx asciinema rec --overwrite -q --cols 122 --rows 38 -c "bash demo.sh" demo.cast

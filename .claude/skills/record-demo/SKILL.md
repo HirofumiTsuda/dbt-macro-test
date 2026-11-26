@@ -1,19 +1,19 @@
 ---
 name: record-demo
-description: Re-record the demo animation of the README (docs/images/demo.gif), a real session of the quick start recorded with asciinema and converted to a GIF with agg. Use when the output of `dbt-macro-test run` or the quick start changes, or when asked to re-record, update or redo the demo GIF or animation.
+description: Re-record the demo animation of the README (docs/images/demo.gif), a real session of the sample project recorded with asciinema and converted to a GIF with agg. Use when the output of `dbt-macro-test run` or the sample project changes, or when asked to re-record, update or redo the demo GIF or animation.
 ---
 
 # Record the demo
 
-`docs/images/demo.gif` is a **recording of a real session**, not a drawing: the quick start of the
-README, run for real with the current code. Never hand-draw it or edit frames; if the output of the
+`docs/images/demo.gif` is a **recording of a real session**, not a drawing: the sample project, run
+for real with the current code. Never hand-draw it or edit frames; if the output of the
 tool changed, record again. Write the pull request in English and follow the `create-pr` skill
 (the issue first, `[#N]` in the title).
 
 ## When
 
-The output of `dbt-macro-test run` changes (its lines, its summary, the failure), the quick start
-changes (the macro, the spec, the commands), or the GIF is found wrong. Not for a change that does
+The output of `dbt-macro-test run` changes (its lines, its summary, the failure), the sample
+project changes in a way that shows (its cases), or the GIF is found wrong. Not for a change that does
 not show on the screen.
 
 ## What is needed
@@ -33,15 +33,14 @@ not show on the screen.
 
 ## Steps
 
-1. **A scratch directory** outside the repository (the scratchpad), with a `shop/` project that is
-   exactly the quick start of the README: `dbt_project.yml` (name `shop`, profile `shop`,
-   `macro-paths: ["macros"]`), `profiles.yml` (duckdb, `path: ":memory:"`), `macros/safe_divide.sql`
-   and `macro_test/safe_divide.yml` with the two cases of the README. If the quick start changed,
-   change this the same way: the GIF must show what the README says.
+1. **A scratch directory** outside the repository, with a copy of `dev/sample_project` as `shop/`
+   (without its `target/` and `logs/`): the recording runs the sample, so what it shows is what the
+   README says the sample has. If the sample changes (more cases, other names), look at the frames:
+   a line that is longer than the `--cols` wraps.
 2. **`bin/dbt-macro-test`**, a two-line shell script that `exec`s the checkout's
    `.venv/bin/dbt-macro-test "$@"`, so that the recording runs the code of the branch, and
    `demo.sh` from `docs/images/demo.sh` next to `shop/` and `bin/`. The script types each command
-   and then runs it for real; the second run is made to fail by a real `sed` on the spec.
+   and then runs it for real; the last run is made to fail by a real `sed` on a spec of the sample.
 3. **Record**, wide enough that no line wraps (the longest line of dbt's output is about 120
    characters) and tall enough for one run:
 
@@ -50,9 +49,9 @@ not show on the screen.
      -c "bash $PWD/demo.sh" run.cast
    ```
 
-4. **The script changes the spec** (`2.5` to `2.0`) and does not change it back. Restore it before
-   the next recording (`sed -i 's/{result: 2.0}/{result: 2.5}/' shop/macro_test/safe_divide.yml`),
-   and delete `shop/target` and `shop/logs`, or the first run will not be the first.
+4. **The script changes a spec** (`2.5` to `2.0` in `macro_test/expressions.yml`) and does not change
+   it back. Make `shop/` again from the sample before the next recording, and without `target` and
+   `logs`, or the first run will not be the first.
 5. **Convert**:
 
    ```bash
@@ -64,10 +63,12 @@ not show on the screen.
 6. **Look at it.** The size of the file says nothing. Take frames with Pillow (`uvx --with pillow
    python`) and open them with the Read tool. The frames are not evenly spaced in time (idle time
    is cut), so pick them **by time**, summing the `duration` of each frame, not by index. Look at
-   three: the passing run, the typing of the `sed`, the failing run with its diff. Check that
+   three: the list of the cases, the end of the full run, the failing run with its diff (also the
+   **last frame**: `social-preview.png` is cut out of it, so run `make_social_preview.py` again and
+   look at that image too). Check that
    - no line wraps, and each run fits on one screen (the top of the second is not scrolled out);
    - the green of PASS and the red of FAIL and of the diff are there;
-   - the text is the real output (version of dbt, `PASS=2` and `1 failed, 1 passed`, exit code 1).
+   - the text is the real output (version of dbt, `26 passed`, and `1 failed` with exit code 1).
    If not, change `--cols`, `--rows` or `--font-size` and record again.
 7. **Put it in the repository**: `run.gif` and `run.cast` become `docs/images/demo.gif` and
    `docs/images/demo.cast`; `demo.sh` stays in `docs/images/`. In `docs/images/README.md` update the
