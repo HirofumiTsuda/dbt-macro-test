@@ -8,6 +8,7 @@ from dbt_macro_test.spec.expectation import (
     InlineRows,
     UnitTestExpect,
 )
+from dbt_macro_test.spec.inputs import GivenInput
 from dbt_macro_test.spec.literals import JinjaExpression, to_jinja_literal
 from dbt_macro_test.spec.output import Output
 from dbt_macro_test.spec.select import case_id, case_ids, select_cases, split_isolated
@@ -28,6 +29,7 @@ __all__ = [
     "ExpectedError",
     "ExpectedWarning",
     "Expectation",
+    "GivenInput",
     "FixtureExpect",
     "FixtureRef",
     "InlineExpect",

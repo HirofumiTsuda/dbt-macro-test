@@ -13,6 +13,7 @@ from dbt_macro_test.spec.expectation import (
     FixtureRef,
     InlineRows,
 )
+from dbt_macro_test.spec.inputs import GivenInput, parse_reference
 from dbt_macro_test.spec.literals import JinjaExpression, to_jinja_literal
 from dbt_macro_test.spec.output import Output
 from dbt_macro_test.spec.setup import RELATION_MARK, SetupRelation, rows_to_select
@@ -48,6 +49,7 @@ class Case:
     warning: ExpectedWarning | None = None
     setup: tuple[SetupRelation, ...] = ()
     query: str | None = None
+    inputs: tuple[GivenInput, ...] = ()
 
     @property
     def runs_own_sql(self) -> bool:
@@ -252,11 +254,14 @@ def _parse_output(value: Any, path: Path, where: str) -> Output:
         raise _fail(path, f"{where}.output", str(e)) from e
 
 
-def _parse_given(value: Any, path: Path, where: str) -> dict[str, Any]:
-    """The arguments of the case; `given` may also be left out, or have none."""
-    given = _mapping(value, path, f"{where}.given", optional=["arguments"])
+def _parse_given(
+    value: Any, path: Path, where: str
+) -> tuple[dict[str, Any], tuple[GivenInput, ...]]:
+    """The arguments and the inputs of the case; `given` may also be left out, or have neither."""
+    given = _mapping(value, path, f"{where}.given", optional=["arguments", "inputs"])
+    inputs = _parse_inputs(given["inputs"], path, where) if "inputs" in given else ()
     if "arguments" not in given:
-        return {}
+        return {}, inputs
     arguments = _mapping(given["arguments"], path, f"{where}.given.arguments", any_keys=True)
     for key in arguments:
         if not isinstance(key, str) or not _IDENTIFIER.match(key):
@@ -264,7 +269,46 @@ def _parse_given(value: Any, path: Path, where: str) -> dict[str, Any]:
     return {
         key: _parse_argument(argument, path, f"{where}.given.arguments.{key}")
         for key, argument in arguments.items()
-    }
+    }, inputs
+
+
+def _parse_inputs(value: Any, path: Path, where: str) -> tuple[GivenInput, ...]:
+    """`inputs: [{input: ref('orders'), rows: [...]} | {input: ..., sql: select ...}]`."""
+    here = f"{where}.given.inputs"
+    entries = _list(value, path, here)
+    inputs: list[GivenInput] = []
+    for i, entry in enumerate(entries):
+        spot = f"{here}[{i}]"
+        body = _mapping(entry, path, spot, required=["input"], optional=["rows", "sql"])
+        reference = body["input"]
+        try:
+            if not isinstance(reference, str):
+                raise ValueError("must be ref('model') or source('source', 'table')")
+            kind, names = parse_reference(reference)
+        except ValueError as e:
+            raise _fail(path, f"{spot}.input", str(e)) from e
+        if sum(key in body for key in ("rows", "sql")) != 1:
+            raise _fail(path, spot, "needs exactly one of 'rows' and 'sql'")
+        if "sql" in body:
+            sql = body["sql"]
+            if not isinstance(sql, str) or not sql.strip():
+                raise _fail(path, f"{spot}.sql", "must be a select, as text")
+            given = GivenInput(kind, names, sql=sql)
+        else:
+            rows = _list(body["rows"], path, f"{spot}.rows")
+            if not rows:
+                raise _fail(path, f"{spot}.rows", "must have at least one row (use `sql` for none)")
+            for j, row in enumerate(rows):
+                _mapping(row, path, f"{spot}.rows[{j}]", any_keys=True)
+            given = GivenInput(kind, names, rows=tuple(rows))
+            try:
+                given.select_sql()
+            except (ValueError, TypeError) as e:
+                raise _fail(path, f"{spot}.rows", str(e)) from e
+        if any(other.reference == given.reference for other in inputs):
+            raise _fail(path, f"{spot}.input", f"{given.reference} is given twice")
+        inputs.append(given)
+    return tuple(inputs)
 
 
 def _parse_expect(value: Any, path: Path, where: str) -> Expectation:
@@ -399,7 +443,7 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         if "overrides" in body
         else Overrides()
     )
-    arguments = _parse_given(body["given"], path, where) if "given" in body else {}
+    arguments, inputs = _parse_given(body["given"], path, where) if "given" in body else ({}, ())
     expect = _parse_expect(body["expect"], path, where)
     warning = _parse_warning(body["expect"], path, where)
     query = _parse_query(body["expect"], path, where)
@@ -420,4 +464,5 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         warning=warning,
         setup=setup,
         query=query,
+        inputs=inputs,
     )

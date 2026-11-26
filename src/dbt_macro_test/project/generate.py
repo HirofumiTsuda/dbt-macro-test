@@ -10,7 +10,7 @@ import yaml
 
 from dbt_macro_test.project.fixtures import Fixture, find_fixtures
 from dbt_macro_test.project.packages import with_absolute_local_paths
-from dbt_macro_test.spec import Overrides, SpecFile, UnitTestExpect, to_jinja_literal
+from dbt_macro_test.spec import GivenInput, Overrides, SpecFile, UnitTestExpect, to_jinja_literal
 
 
 class UnitTest(TypedDict):
@@ -117,6 +117,7 @@ def build_files(
         files["packages.yml"] = with_absolute_local_paths(packages_yml, root)
 
     unit_tests: list[UnitTest] = []
+    stand_ins = StandIns()
     case_number = 0
     for spec_file in spec_files:
         for macro_spec in spec_file.macros:
@@ -128,17 +129,47 @@ def build_files(
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
                 files[path] = case.model_sql(call, f"_dmt_{run_id}_{case_number}_")
                 case_number += 1
+                for given in case.inputs:
+                    stand_ins.add(given)
                 unit_test = UnitTest(
                     name=case.name,
                     model=name,
-                    given=[],
+                    given=[given.unit_test_input() for given in case.inputs],
                     expect=case.expect.for_unit_test(fixture_formats),
                 )
                 if case.overrides:
                     unit_test["overrides"] = case.overrides
                 unit_tests.append(unit_test)
+    files.update(stand_ins.files())
     files["models/_unit_tests.yml"] = yaml.safe_dump({"unit_tests": unit_tests}, sort_keys=False)
     return files
+
+
+class StandIns:
+    """The nodes that the inputs of the cases refer to: a model for each `ref` and a source for
+    each `source`, so that dbt can resolve what a macro calls. They are never built and hold
+    nothing: the data is what each case gives, as the `given` of its unit test."""
+
+    def __init__(self) -> None:
+        self._models: set[str] = set()
+        self._sources: dict[str, set[str]] = {}
+
+    def add(self, given: GivenInput) -> None:
+        if given.kind == "ref":
+            self._models.add(given.names[0])
+        else:
+            source, table = given.names
+            self._sources.setdefault(source, set()).add(table)
+
+    def files(self) -> dict[str, str]:
+        files = {f"models/{model}.sql": "select 1 as stand_in\n" for model in sorted(self._models)}
+        if self._sources:
+            sources = [
+                {"name": source, "tables": [{"name": table} for table in sorted(tables)]}
+                for source, tables in sorted(self._sources.items())
+            ]
+            files["models/_sources.yml"] = yaml.safe_dump({"sources": sources}, sort_keys=False)
+        return files
 
 
 def write_project(files: dict[str, str], out_dir: Path) -> None:

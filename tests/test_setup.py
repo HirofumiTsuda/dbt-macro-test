@@ -54,3 +54,39 @@ def test_a_relation_filled_by_rows_gives_the_select_of_the_rows() -> None:
     relation = SetupRelation("t", rows=({"id": 1},))
 
     assert relation.select_sql() == "select 1 as id"
+
+
+def test_plain_values_write_numbers_and_safe_strings_without_jinja() -> None:
+    from dbt_macro_test.spec.setup import plain_value
+
+    assert [plain_value(v) for v in (1, 2.5, True, None, "paid", "a b")] == [
+        "1",
+        "2.5",
+        "true",
+        "null",
+        "'paid'",
+        "'a b'",
+    ]
+
+
+@pytest.mark.parametrize("text", ["it's", "a\\b", "{{ x }}", "{% if %}", "{# c #}"])
+def test_plain_values_refuse_a_string_whose_quoting_differs_between_warehouses(text: str) -> None:
+    from dbt_macro_test.spec.setup import plain_value
+
+    with pytest.raises(ValueError, match="use `sql` for it"):
+        plain_value(text)
+
+
+def test_rows_of_an_input_become_a_select_without_dbt_macros() -> None:
+    from dbt_macro_test.spec import GivenInput
+
+    given = GivenInput("ref", ("orders",), rows=({"id": 1, "s": "paid"}, {"id": 2, "s": "open"}))
+
+    assert given.unit_test_input() == {
+        "input": "ref('orders')",
+        "format": "sql",
+        "rows": "select 1 as id, 'paid' as s\nunion all\nselect 2, 'open'",
+    }
+    assert GivenInput("source", ("shop", "payments"), sql=" select 1 as id ").reference == (
+        "source('shop', 'payments')"
+    )

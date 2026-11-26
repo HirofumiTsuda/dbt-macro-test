@@ -146,7 +146,7 @@ has the evidence for the gap and the prior art.
 
 Arguments are given by name. A case can expect rows (written out, as csv or SQL, or in a file),
 an error, or a warning; it can return a whole `select`, several columns, a value of a
-composite type, or text that is not SQL (a slug, the text of a `merge`), or a macro that runs statements, such as an upsert, checked by the rows it leaves in relations the tool makes for the case (this one writes: read [the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)); and it can override macros, `vars` and environment variables for that case. All
+composite type, or text that is not SQL (a slug, the text of a `merge`), or a macro that calls `ref()` or `source()` (the rows it is to see are given in the spec), or a macro that runs statements, such as an upsert, checked by the rows it leaves in relations the tool makes for the case (this one writes: read [the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)); and it can override macros, `vars` and environment variables for that case. All
 of it is in the [spec reference](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md).
 
 ## The command line
@@ -243,14 +243,13 @@ jobs:
 
 Each of these has an issue.
 
-- A macro that needs a `ref` or a `source` to exist, such as `dbt_utils.star` or
-  `union_relations` ([#9](https://github.com/HirofumiTsuda/dbt-macro-test/issues/9)).
-- A macro that returns text which is not SQL, such as `dbt_utils.slugify`
-  ([#29](https://github.com/HirofumiTsuda/dbt-macro-test/issues/29)); and asserting on a
-  macro's return value without a database
+- Asserting on a macro's return value without a database
   ([#11](https://github.com/HirofumiTsuda/dbt-macro-test/issues/11)).
-- A macro that runs DML, such as `merge`
+- A macro that returns the text of a statement for the tool to run, `run: execute`; the setup of a
+  case from a csv or a file; any macro that writes, on an adapter other than duckdb
   ([#30](https://github.com/HirofumiTsuda/dbt-macro-test/issues/30)).
+- A `ref` of a model of a package, `ref('package', 'model')`, as an input
+  ([#9](https://github.com/HirofumiTsuda/dbt-macro-test/issues/9)).
 - Generic tests ([#13](https://github.com/HirofumiTsuda/dbt-macro-test/issues/13)), and asserting on
   which macros were called ([#16](https://github.com/HirofumiTsuda/dbt-macro-test/issues/16)).
 - dbt Fusion ([#23](https://github.com/HirofumiTsuda/dbt-macro-test/issues/23)); the tool runs
