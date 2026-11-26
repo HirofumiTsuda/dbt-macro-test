@@ -32,6 +32,7 @@ trademark of dbt Labs, Inc.
 
 ## Quick start
 
+<!-- --8<-- [start:quickstart] -->
 **1. Install.** The tool runs dbt **in the same process**, so the adapter of your project has to be
 installed in the same environment, with dbt-core (1.8 or later; the tool brings it):
 
@@ -99,6 +100,7 @@ actual differs from expected:
 
 Both outputs are trimmed (dbt's start-up lines and the timestamps are left out). They are from
 running exactly this, in a new project with a duckdb profile and the tool installed as above.
+<!-- --8<-- [end:quickstart] -->
 
 **Next:** [what to write for your macro](#what-to-write-for-your-macro): an error, a warning, text, a `ref`, a macro that writes.
 
@@ -292,6 +294,10 @@ end-to-end ones, which run dbt, take most of the time. To run one test, or to se
 failure without the workers, use `uv run pytest -n 0 path/to/test.py::test_name`. CI runs the
 suite on Python 3.11 to 3.14, on dbt-core 1.8, and on Windows; dbt-core 1.9, 1.10 and 1.11 were
 each run once by hand.
+
+The documentation site is MkDocs (Material) over `docs/`, the README and the changelog
+(`mkdocs.yml`). To see it while you edit, `uv run --group docs mkdocs serve`; CI builds it with
+`mkdocs build --strict`, so a broken link fails, and publishes it when `main` changes.
 
 The dependencies in `uv.lock` and the pinned actions of the workflows are kept up to date by
 Dependabot (`.github/dependabot.yml`): once a week, one pull request for the actions and one for

@@ -1,7 +1,7 @@
 # Spec reference
 
 A spec file is YAML under `macro_test/` in the dbt project (any `*.yml` or `*.yaml`, in
-directories too). This page lists every key; the [README](../README.md) has a first test and
+directories too). This page lists every key; the [README](https://github.com/HirofumiTsuda/dbt-macro-test#readme) has a first test and
 the command line.
 
 ```yaml
@@ -27,7 +27,7 @@ macros:                       # required: a list
 ```
 
 A whole project of specs, one file for each thing below, is
-[`dev/sample_project`](../dev/sample_project). An unknown key is an error that names the key and says where it is (for example
+[`dev/sample_project`](https://github.com/HirofumiTsuda/dbt-macro-test/tree/main/dev/sample_project). An unknown key is an error that names the key and says where it is (for example
 `macros[0].cases[0]: unknown key(s): bogus`); so is a wrong type. Only `overrides` lists the names
 that are accepted. The exit code is 2, and nothing is run.
 

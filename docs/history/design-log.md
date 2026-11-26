@@ -1,7 +1,7 @@
 # dbt-macro-test: design log
 
 > **A record, not a description.** This is how the design was worked out between 2026-09 and
-> 2026-11, kept as it was written. Where it disagrees with the [README](../../README.md), the
+> 2026-11, kept as it was written. Where it disagrees with the [README](https://github.com/HirofumiTsuda/dbt-macro-test#readme), the
 > [spec reference](../spec.md) and [the design](../design.md), those win. In particular:
 >
 > - The sections up to "CLI layer and `macro_test/` directory" describe a pytest library

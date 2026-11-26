@@ -1,6 +1,6 @@
 # Design
 
-How `dbt-macro-test` works, and why it is built this way. The [README](../README.md) is for using
+How `dbt-macro-test` works, and why it is built this way. The [README](https://github.com/HirofumiTsuda/dbt-macro-test#readme) is for using
 it and the [spec reference](spec.md) lists every key of a spec; this page is for reading or
 changing the code. How the design was worked out, with the evidence that the gap is real and the
 prior art, is in the [design log](history/design-log.md), which is a record and not a

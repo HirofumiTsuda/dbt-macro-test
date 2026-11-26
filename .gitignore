@@ -14,3 +14,6 @@ target/
 logs/
 dbt_packages/
 .user.yml
+
+# the built documentation site
+site/

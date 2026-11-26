@@ -112,3 +112,15 @@ jobs:
 
       - if: needs.changes.outputs.code != 'false'
         run: uv run pytest
+
+  docs:
+    # The documentation site must build, with a broken link or a missing page as an error. It runs
+    # on every pull request, documentation only or not, since that is what it checks (#97).
+    name: docs (build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+
+      - run: uv run --only-group docs mkdocs build --strict
