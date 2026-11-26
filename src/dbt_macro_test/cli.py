@@ -1,7 +1,7 @@
 import os
 import sys
 import tempfile
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
@@ -53,7 +53,7 @@ class CouldNotRun(click.ClickException):
 
 
 @contextmanager
-def _workspace(keep: bool) -> Iterator[Path]:
+def _workspace(keep: bool) -> Generator[Path, None, None]:
     """A fresh directory for the generated project, removed afterwards unless kept."""
     if keep:
         yield Path(tempfile.mkdtemp(prefix="dbt-macro-test-"))
