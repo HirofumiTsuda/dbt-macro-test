@@ -100,6 +100,30 @@ actual differs from expected:
 Both outputs are trimmed (dbt's start-up lines and the timestamps are left out). They are from
 running exactly this, in a new project with a duckdb profile and the tool installed as above.
 
+**Next:** [what to write for your macro](#what-to-write-for-your-macro): an error, a warning, text, a `ref`, a macro that writes.
+
+## What to write for your macro
+
+Find the kind of macro you have, and copy the example from the
+[guide](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/guide.md); every example
+there runs in CI.
+
+| Your macro... | Write |
+|---|---|
+| gives a value (a SQL expression) | the default, as above |
+| gives several columns, or a whole `select` | `output: columns`, `output: query` |
+| gives text that is not SQL (a code, a slug) | `output: text` |
+| stops with an error, or warns | `expect.error`, `expect.warning` |
+| reads a `var`, an environment variable, or calls another macro | `overrides` |
+| is a macro of a package (`dbt_utils.slugify`) | `macro: package.macro` |
+| reads a model or a source | `given.inputs`: the rows it is to see |
+| writes (insert, merge, delete) | `setup.relations` and `expect.query` (this one writes: read [the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)) |
+| returns the text of a statement | `run: execute` |
+
+[`dev/sample_project`](https://github.com/HirofumiTsuda/dbt-macro-test/tree/main/dev/sample_project)
+is a small dbt project with a spec for each of these, one to read and to try a change on. Every key
+is in the [spec reference](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md).
+
 ## Why this exists
 
 Although dbt macros are useful, it is not straightforward to test them. dbt's own unit tests are for
@@ -139,15 +163,6 @@ own, the specs still say what a macro should do, which is the part worth keeping
 how it works and why;
 [`docs/history/design-log.md`](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/history/design-log.md)
 has the evidence for the gap and the prior art.
-
-## What a spec can say
-
-[`dev/sample_project`](https://github.com/HirofumiTsuda/dbt-macro-test/tree/main/dev/sample_project) is a small dbt project with a spec for each of the things below: one to read, and to try a change on.
-
-Arguments are given by name. A case can expect rows (written out, as csv or SQL, or in a file),
-an error, or a warning; it can return a whole `select`, several columns, a value of a
-composite type, or text that is not SQL (a slug, the text of a `merge`), or a macro that calls `ref()` or `source()` (the rows it is to see are given in the spec), or a macro that runs statements, such as an upsert, checked by the rows it leaves in relations the tool makes for the case (this one writes: read [the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)); and it can override macros, `vars` and environment variables for that case. All
-of it is in the [spec reference](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md).
 
 ## The command line
 
