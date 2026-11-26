@@ -35,8 +35,10 @@ These are settings of PyPI and GitHub, not of the repository, and are the mainta
 
 1. Choose the version (`0.1.0`, `0.2.0`, ...; before 1.0.0 a minor version may change the spec format).
 2. In a pull request: set `version` in `pyproject.toml`, and in `CHANGELOG.md` rename the heading of
-   the version to `## [X.Y.Z] - YYYY-MM-DD` and list what changed. The pull request runs the build
-   and the smoke test of the release, so the package is known to be sound before the tag.
+   the version to `## [X.Y.Z] - YYYY-MM-DD` and list what changed, **starting with a paragraph that
+   says what the version is for** (under the heading, before the first `###`): it is the head of the
+   GitHub release. The pull request runs the build and the smoke test of the release, so the package
+   is known to be sound before the tag, and it stops at a version without that paragraph.
    **For the first release**, the README says that the tool is not on PyPI and installs it from git;
    the PyPI page of a version is the README as it was built, so change the status line and the
    install lines (also in the example for GitHub Actions) in the same pull request.
@@ -51,11 +53,25 @@ These are settings of PyPI and GitHub, not of the repository, and are the mainta
 4. The workflow builds the package and checks that the tag, `pyproject.toml` and `CHANGELOG.md`
    agree; installs the wheel and the sdist, each into a clean environment, and runs them on a
    project; and then waits for the approval of the `pypi` environment. Approve it in the run's page.
-5. Check <https://pypi.org/project/dbt-macro-test/>, and install it into a new environment.
+5. After the publication, the workflow makes the **GitHub release** (the job `github-release`, the
+   only one that may write to the repository): its notes are the paragraph, the sections of the
+   entry of the version in `CHANGELOG.md`, the install line and the links to the changelog and to
+   the comparison with the previous tag; the wheel and the sdist that were published are attached;
+   a version with letters in it (`0.3.0rc1`) is a pre-release. If that job fails, nothing is
+   undone: make the release by hand with the same script,
+
+   ```bash
+   python3 .github/scripts/release_notes.py X.Y.Z --previous W.X.Y > notes.md
+   gh release create vX.Y.Z --verify-tag --title X.Y.Z --notes-file notes.md --latest
+   ```
+
+6. Check <https://pypi.org/project/dbt-macro-test/> and the release page, and install it into a new
+   environment.
 
 ## What the workflow checks
 
-- the tag is `v` plus the version in `pyproject.toml`, and `CHANGELOG.md` has a heading for it;
+- the tag is `v` plus the version in `pyproject.toml`, and `CHANGELOG.md` has a heading for it and,
+  under it, the paragraph that says what the version is for (not for a `.dev` dry run);
 - `twine check --strict` passes, and the wheel holds `py.typed` and `LICENSE`, the sdist `LICENSE`;
 - the wheel and the sdist each install into a new environment, `dbt-macro-test` is the installed
   one (not the checkout), and `dbt-macro-test run` passes on the project in `tests/fixtures/project`.

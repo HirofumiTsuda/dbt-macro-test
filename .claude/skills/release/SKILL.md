@@ -110,7 +110,9 @@ of the README).
 
 1. **The release pull request**, with its issue (`[#N]`, see `create-pr`): `version` in
    `pyproject.toml` if it is not already, the heading of the version in `CHANGELOG.md` renamed to
-   `## [X.Y.Z] - YYYY-MM-DD` (today, from `date +%F`; do not guess the date), what changed listed,
+   `## [X.Y.Z] - YYYY-MM-DD` (today, from `date +%F`; do not guess the date), **a paragraph under it
+   that says what the version is for** (the head of the GitHub release; the build stops without it),
+   what changed listed,
    and the README changes of the section above for the first release. Its checks include the build
    and the smoke test of the release workflow (it runs for a change to `pyproject.toml` or
    `CHANGELOG.md`). In the body, **no "close(s)/fix(es) #N" unless it should close that issue**:
@@ -130,6 +132,9 @@ of the README).
      run against PyPI), and `run` on a copy of `tests/fixtures/project`;
    - for the first release, the example workflow of the README, run once on GitHub (a throwaway pull
      request that is closed afterwards).
+   - the GitHub release was made by the workflow (the job `github-release`): read its page, the
+     notes and the two files; if the job failed, nothing is undone, and the release is made by hand
+     as `docs/releasing.md` says;
 6. Close what the release finishes (#56, then #12), tick the roadmap (#17), and write in the issue
    what was published and what was checked. If something is wrong with the published version, it
    cannot be replaced: say so, and prepare the next version (a yanked release is the user's call).
