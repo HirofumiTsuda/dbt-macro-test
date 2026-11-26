@@ -1,46 +1,22 @@
 ---
 title: How to unit test dbt macros (dbt-core 1.8+)
 published: false
-description: dbt's native unit tests cover models, not macros. dbt-macro-test turns a few lines of YAML into one native unit test per case, so dbt does the running and the diff.
+description: dbt's native unit tests are for models, not macros. dbt-macro-test turns a few lines of YAML into one native unit test per case, and dbt runs them.
 tags: dbt, dataengineering, python, testing
 ---
 
-dbt's native unit tests, from dbt-core 1.8, test **models**: you give a model's inputs and the rows
-you expect, and dbt compares them. They do not call a **macro**. So if you have a macro such as a
-`safe_divide`, a slug builder or a custom `merge`, there is no built-in way to say "with these
-arguments it should return this".
+dbt's native unit tests, available from dbt-core 1.8, are written for models. Give a model its input rows and the rows you expect, and dbt compares them. A macro can't be given arguments and checked the same way. [dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547) asks for it and has been open since August 2024.
 
-This is a known gap: [dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547) asks for it,
-and has been open since August 2024. This post shows what people do today, and a small tool,
-[dbt-macro-test](https://github.com/HirofumiTsuda/dbt-macro-test), that I wrote for it.
+There are workarounds. One is a model that only calls the macro, with a native unit test on that model, as [this post](https://www.dumky.net/posts/unit-testing-dbt-macros-a-workaround-for-dbts-unit-testing-limitations/) describes. Another is [dbt-unittest](https://github.com/yu-iskw/dbt-unittest), whose assertion macros are run with `dbt run-operation`. dbt-utils keeps a separate [integration_tests](https://github.com/dbt-labs/dbt-utils/tree/main/integration_tests) project, and [pytest-dbt-core](https://github.com/godatadriven/pytest-dbt-core) tests macros from Python. The first one stays closest to dbt, but the test models end up in your project's manifest, and every macro needs a few files of its own.
 
-## Can dbt's unit tests test macros?
+[dbt-macro-test](https://github.com/HirofumiTsuda/dbt-macro-test) writes that first kind of test from a YAML spec. For each case it generates the throwaway model and the native unit test in a temporary project, then has dbt run them. Nothing is added to your project. Running, comparing and printing the diff are all dbt's.
 
-Not directly. A unit test is of a model. What people do instead:
-
-| Approach | How | Where the tests live |
-|---|---|---|
-| A model that calls the macro, with a native unit test of it, by hand ([a write-up](https://www.dumky.net/posts/unit-testing-dbt-macros-a-workaround-for-dbts-unit-testing-limitations/)) | the macro's output is the model's, and dbt compares it | your project's `models/`, next to the real models |
-| [`dbt-unittest`](https://github.com/yu-iskw/dbt-unittest) | assertion macros (`assert_equals`, ...), run with `dbt run-operation` | your project's `macros/` |
-| A dedicated testing project, as dbt packages do ([`dbt-utils`](https://github.com/dbt-labs/dbt-utils/tree/main/integration_tests) has one) | seeds, models and tests of its own | a second project, kept by hand |
-| [`pytest-dbt-core`](https://github.com/godatadriven/pytest-dbt-core) | a pytest plugin | Python files |
-
-The first is the closest to dbt itself. It is also the one that puts test models in your project's
-manifest, and takes three files for one macro.
-
-## The same idea, generated
-
-`dbt-macro-test` automates that first approach. You write a YAML spec; for each case it generates a
-throwaway model that calls the macro, plus a native unit test of that model, in a temporary dbt
-project, and has dbt run them. Your project is not touched, and **dbt does the running, the
-comparison and the failure output**.
+## A first test
 
 ```bash
 pip install dbt-duckdb        # or the adapter your project uses
 pip install dbt-macro-test
 ```
-
-A macro:
 
 ```sql
 -- macros/safe_divide.sql
@@ -48,8 +24,6 @@ A macro:
     {{ numerator }} / nullif({{ denominator }}, 0)
 {% endmacro %}
 ```
-
-and its spec:
 
 ```yaml
 # macro_test/safe_divide.yml
@@ -79,8 +53,7 @@ Done. PASS=2 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=2
 2 passed
 ```
 
-(Trimmed: dbt's start-up lines and timestamps are left out.) When a case fails you get dbt's own
-diff, and the exit code is 1:
+dbt's start-up lines and the timestamps are left out above. If an expected value is wrong, dbt's own diff is printed and the exit code is 1:
 
 ```console
 actual differs from expected:
@@ -92,11 +65,9 @@ actual differs from expected:
 1 failed, 1 passed
 ```
 
-## More than a value
+## Errors, refs and the rest
 
-The spec has a few more things, each run for real on the sample project in the repository.
-
-**A macro that stops with an error** (the message only has to be contained in the error):
+A macro that raises an error can be tested too. The message only has to be contained in the error:
 
 ```yaml
   - macro: quantity
@@ -109,54 +80,14 @@ The spec has a few more things, each run for real on the sample project in the r
             message: quantity must not be negative, got -5
 ```
 
-**A macro that reads a model or a source.** A macro that calls `ref('orders')` needs `orders` to
-exist, and the generated project has none of yours. You give the rows it is to see; no real data is
-read:
+A macro that calls `ref('orders')` or `source(...)` is given rows in the spec, and no real data is read. The expected rows can be written as csv, as a select or in a file. Macros of a package are named with the package, such as `dbt_utils.slugify`. A case can override `vars`, environment variables and other macros. Text that isn't SQL, such as a slug, is compared as text. A macro that inserts, merges or deletes is checked through temporary relations the tool makes for the case, and that is a real write to the target's schema, so a local or throwaway target is the one to use. [The guide](https://hirofumitsuda.github.io/dbt-macro-test/guide/) has an example for each of these, and each runs in CI.
 
-```yaml
-        given:
-          arguments: {status: "'open'"}
-          inputs:
-            - input: ref('orders')
-              rows:
-                - {id: 1, status: open}
-                - {id: 2, status: shipped}
-```
+## In CI, and what is missing
 
-**A macro of a package**, by its qualified name (`dbt_utils.slugify`), **text that is not SQL**
-(`output: text`), `overrides` of `vars`, environment variables and other macros for one case, and
-the expected rows as csv, as a select, or in a file.
+`dbt-macro-test run` exits with 0 when every case passed, 1 when one failed and 2 when the tests could not be run, for example because of an invalid spec. `--select "safe_*::by_zero"` runs part of them. The unit tests run in your warehouse, so a CI job needs the adapter, a profile, and the rights of a `dbt run` on a schema it can write to.
 
-**A macro that writes** (an insert, a merge, a delete): the tool makes the relations of the case as
-temporary relations, runs the macro, compares the rows a query returns afterwards, and drops them.
-This one is a real write to your target's schema, so use a local or throwaway target.
-
-[The guide](https://hirofumitsuda.github.io/dbt-macro-test/guide/) goes by the kind of macro, with an
-example for each; every one runs in CI.
-
-## In CI
-
-One command, and exit codes: 0 when every case passed, 1 when one failed, 2 when the tests could not
-be run (an invalid spec, a wrong argument name, dbt itself failing). `--select "safe_*::by_zero"`
-runs some of the cases. It needs what `dbt test` needs: the adapter and a profile. Unit tests run in
-your warehouse, so a CI job needs the rights of a `dbt run` on a schema it can write to.
-
-## What it does not do
-
-I would rather say it than have you find out:
-
-- **Only duckdb has been run.** The tool leaves the work to dbt, so other adapters may well work,
-  but none has been tried.
-- It is **alpha** (0.2), and the spec format may still change. dbt-core 1.8 or later, Python 3.11 or
-  later; it runs dbt in the same process, so the adapter has to be installed next to it.
-- Whether it works on dbt Fusion is not known (it runs dbt-core in the process), and it cannot assert
-  on a macro's return value without a warehouse connection.
-
-## Links
+Only duckdb has been tried. Other adapters may work, since dbt does the running, but none has been run. The tool is at 0.2 and the spec format may still change. It needs dbt-core 1.8 or later and Python 3.11 or later, and the adapter has to be installed in the same environment because dbt runs in the same process. Whether it works on dbt Fusion is not known.
 
 - Repository: <https://github.com/HirofumiTsuda/dbt-macro-test>
 - PyPI: <https://pypi.org/project/dbt-macro-test/>
 - Documentation: <https://hirofumitsuda.github.io/dbt-macro-test/>
-
-If you test macros some other way, or have a macro this cannot express, I would like to hear it:
-an issue on the repository is the best place.
