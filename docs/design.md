@@ -210,8 +210,10 @@ The README lists what is not supported, each with its issue. The ones that shape
 - **Every case is a unit test of a model, which runs in the warehouse.** The return value of a
   macro without a database (#11) does not fit in it yet.
 - **The result is compared as rows.** That is what dbt compares, and what the tool leaves to it.
-- **Only duckdb has been run**, so what a macro does on another adapter, and how a csv cell for a
-  composite value is read by it, has not been seen (#14).
+- **Only duckdb and Postgres have been run** (the sample project, Postgres in CI), so what a macro
+  does on another adapter, and how a csv cell for a composite value is read by it, has not been
+  seen (#14). The result of a macro can depend on the database (`10 / 4` is `2.5` on duckdb and `2`
+  on Postgres), which is what a case's `adapters` is for.
 - dbt Fusion: whether `dbtRunner` and the generated project work on it is not known; that is #23.
 
 ## Where to read more

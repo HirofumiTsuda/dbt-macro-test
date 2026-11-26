@@ -6,6 +6,13 @@ All notable changes are listed here, newest first. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The sample project runs on Postgres as well as duckdb (a CI job runs it against a Postgres
+  container), with a case for each database where the result differs: two integers divide to `2.5`
+  on duckdb and to `2` on Postgres. `cents_to_dollars` of the sample divides by `100.0`, so that it
+  gives the same on both.
+
 ### Added
 
 - `adapters` on a case: `adapters: [duckdb]` limits a case to some adapters (the `type` of the target

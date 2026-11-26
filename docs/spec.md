@@ -176,7 +176,7 @@ text. What the statement would do is not tested, only what it says.
   inside is compared as it is, so a statement of several lines is expected with its line breaks and
   its indentation (a YAML block, `|-`, writes that well).
 - A single quote in the text is escaped by dbt's own macro (`escape_single_quotes`), which each
-  adapter may override; only duckdb has been tried.
+  adapter may override; only duckdb and Postgres have been tried.
 - Without `output: text`, the same macro is taken for a SQL expression, and `Hello, World!` is a
   syntax error (`select Hello, World! as result`).
 - **A macro that reads the `config` of the model it runs in sees the generated model's, which is
@@ -253,7 +253,7 @@ leaves behind.
 > or `--select`. Choosing which cases may run, by tag or by adapter, is #88.
 
 **What "temporary" is depends on the adapter**, and that is dbt's and the adapter's to say, not this
-tool's. Read in the code of each adapter's current release (only duckdb was run):
+tool's. Read in the code of each adapter's current release (only duckdb and Postgres were run):
 
 | Adapter | A temporary relation is | Kept for | A macro that writes to it |
 |---|---|---|---|
@@ -262,7 +262,7 @@ tool's. Read in the code of each adapter's current release (only duckdb was run)
 | BigQuery | a real table, with an expiry of 12 hours | until dropped | works; the tool drops it |
 | Trino | a normal table | for ever | works; the tool drops it |
 
-Not tried: any adapter other than duckdb (the table is the code, not a run); a run that is killed before the drop (the
+Not tried: any adapter other than duckdb and Postgres (the table is the code, not a run); a run that is killed before the drop (the
 names say when the relations were made, so a leftover can be found and removed by hand). A macro that
 reads the `config`, `this` or `is_incremental()` of the model it runs in sees the generated model's,
 as for `output: text`.

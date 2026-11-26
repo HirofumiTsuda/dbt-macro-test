@@ -11,7 +11,8 @@ from dbt_macro_test.spec import load_specs
 pytestmark = pytest.mark.e2e
 
 SAMPLE = Path(__file__).parent.parent / "dev" / "sample_project"
-CASES = 26  # change it with the sample: the test fails when a case is added or taken away
+CASES = 27  # change it with the sample: the test fails when a case is added or taken away
+SKIPPED = 1  # on duckdb: the case that is for Postgres only
 HELPERS = {"tax_rate"}  # macros that are there to be overridden, with no case of their own
 
 
@@ -27,7 +28,7 @@ def test_every_case_of_the_sample_passes(sample: Path) -> None:
     result = CliRunner().invoke(main, ["run", "--project-dir", str(sample)])
 
     assert result.exit_code == 0, result.output
-    assert f"{CASES} passed" in result.output
+    assert f"{CASES - SKIPPED} passed, {SKIPPED} skipped" in result.output
 
 
 def test_the_sample_has_the_number_of_cases_that_the_test_knows(sample: Path) -> None:

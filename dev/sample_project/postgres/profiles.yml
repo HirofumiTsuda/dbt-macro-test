@@ -1,0 +1,19 @@
+# The sample on Postgres (#116), for `--profiles-dir`. The connection is in the environment, with the
+# defaults of the container that the CI job and the README use:
+#
+#   docker run -d --name dmt-pg -e POSTGRES_USER=dmt -e POSTGRES_PASSWORD=dmt -e POSTGRES_DB=dmt \
+#     -p 5432:5432 postgres:17
+#   pip install dbt-postgres
+#   dbt-macro-test run --project-dir dev/sample_project --profiles-dir dev/sample_project/postgres
+shop:
+  target: postgres
+  outputs:
+    postgres:
+      type: postgres
+      host: "{{ env_var('DMT_PG_HOST', 'localhost') }}"
+      port: "{{ env_var('DMT_PG_PORT', '5432') | as_number }}"
+      user: "{{ env_var('DMT_PG_USER', 'dmt') }}"
+      password: "{{ env_var('DMT_PG_PASSWORD', 'dmt') }}"
+      dbname: "{{ env_var('DMT_PG_DB', 'dmt') }}"
+      schema: dmt_sample
+      threads: 1
