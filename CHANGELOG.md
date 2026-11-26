@@ -6,6 +6,8 @@ All notable changes are listed here, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
 ### Changed
 
 - The models that the tool generates are named `_dmt_<spec>_<macro>_<case>` (for *dbt macro test*),
@@ -13,7 +15,14 @@ All notable changes are listed here, newest first. The format follows
   the output of a run, so they are seen. (The relations that a case makes, and the macro that drops
   them, are new in this release and have `_dmt_` from the start.)
 
+- The `Documentation` link of the package is the documentation site, not the spec reference on
+  GitHub.
+
 ### Added
+
+- A documentation site, <https://hirofumitsuda.github.io/dbt-macro-test/>: a guide of what to write
+  for each kind of macro (every example in it runs in CI), the spec reference, the design and the
+  changelog. The README has a table of the same kinds that points to it.
 
 - `run: execute`: a macro that returns the text of a statement, such as `dbt.get_merge_sql`, has that
   statement run by the tool (`run_query`), and `expect.query` shows what it did to the relations of

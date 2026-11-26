@@ -1,6 +1,6 @@
 [project]
 name = "dbt-macro-test"
-version = "0.1.0"
+version = "0.2.0"
 description = "Unit tests for dbt macros, built on dbt's native unit tests"
 keywords = ["dbt", "macro", "jinja", "sql", "testing", "unit-test"]
 classifiers = [
