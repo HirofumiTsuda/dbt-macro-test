@@ -63,7 +63,7 @@ class Case:
         `create_table_as`, which each adapter implements for itself, so nothing here is adapter
         specific. They are made when dbt renders the model at run time (`run_query`), in the
         connection dbt gives the test, and their names are logged so that the tool can drop them
-        afterwards (`__mt_relation__`): a temporary relation is not temporary on every adapter.
+        afterwards (`__dmt_relation__`): a temporary relation is not temporary on every adapter.
         With a `query` the macro is then run for what it does, its text dropped, and the model is
         the query; without one, the macro's output is the model, as before.
         """
@@ -83,8 +83,8 @@ class Case:
         lines.append("{% if execute %}")
         for relation in self.setup:
             ref = f"relations.{relation.name}"
-            lines.append(f"{{% set _mt_sql %}}{relation.select_sql()}{{% endset %}}")
-            lines.append(f"{{% do run_query(create_table_as(true, {ref}, _mt_sql)) %}}")
+            lines.append(f"{{% set _dmt_sql %}}{relation.select_sql()}{{% endset %}}")
+            lines.append(f"{{% do run_query(create_table_as(true, {ref}, _dmt_sql)) %}}")
             lines.append(
                 f'{{% do log("{RELATION_MARK}" ~ tojson({{'
                 f'"database": {ref}.database, "schema": {ref}.schema, '

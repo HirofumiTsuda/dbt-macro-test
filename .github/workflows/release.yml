@@ -47,8 +47,8 @@ jobs:
           unzip -l dist/*.whl | grep -E "dbt_macro_test/py\.typed"
           unzip -l dist/*.whl | grep -E "licenses/LICENSE"
           tar -tzf dist/*.tar.gz | grep -E "/LICENSE$"
-          unzip -l dist/*.whl | grep -E "dbt_macro_test/project/macros/_mt_drop\.sql"
-          tar -tzf dist/*.tar.gz | grep -E "/project/macros/_mt_drop\.sql$"
+          unzip -l dist/*.whl | grep -E "dbt_macro_test/project/macros/_dmt_drop\.sql"
+          tar -tzf dist/*.tar.gz | grep -E "/project/macros/_dmt_drop\.sql$"
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -84,7 +84,7 @@ jobs:
         run: |
           "$RUNNER_TEMP/venv/bin/python" -c "import dbt_macro_test; print(dbt_macro_test.__file__)" | tee /dev/stderr | grep -q site-packages
           "$RUNNER_TEMP/venv/bin/dbt-macro-test" --help
-          "$RUNNER_TEMP/venv/bin/python" -c "from dbt_macro_test.project.generate import cleanup_macro; assert 'macro _mt_drop' in cleanup_macro()"
+          "$RUNNER_TEMP/venv/bin/python" -c "from dbt_macro_test.project.generate import cleanup_macro; assert 'macro _dmt_drop' in cleanup_macro()"
 
       - name: Run it on a project
         run: |

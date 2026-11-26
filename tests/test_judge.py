@@ -6,11 +6,11 @@ def run(*results: CaseResult, exception: str | None = None) -> RawRun:
 
 
 DBT_STOPPED = (
-    "Compilation Error in model _mt_x (models/_mt_x.sql)\n"
+    "Compilation Error in model _dmt_x (models/_dmt_x.sql)\n"
     "  x must not be negative, got -5\n"
     "  \n"
     "  > in macro positive (macros/m.sql)\n"
-    "  > called by model _mt_x (models/_mt_x.sql)"
+    "  > called by model _dmt_x (models/_dmt_x.sql)"
 )
 
 

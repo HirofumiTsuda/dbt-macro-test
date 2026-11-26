@@ -6,6 +6,12 @@ All notable changes are listed here, newest first. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- What the tool generates is named with `_dmt_` (for *dbt macro test*) and no longer `_mt_`: the
+  models (`_dmt_<spec>_<macro>_<case>`, which dbt prints in its output), the relations that a case
+  makes and the macro that drops them. Not an interface, but visible in the output of a run.
+
 ### Added
 
 - `output: text`: a macro that returns text that is not SQL (a slug such as `dbt_utils.slugify`,

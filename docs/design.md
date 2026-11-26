@@ -67,7 +67,7 @@ test-paths: []
 ```
 
 ```sql
--- models/_mt_safe_divide_safe_divide_division_by_zero_is_null.sql
+-- models/_dmt_safe_divide_safe_divide_division_by_zero_is_null.sql
 select {{ safe_divide(numerator=10, denominator=0) }} as result
 ```
 
@@ -75,7 +75,7 @@ select {{ safe_divide(numerator=10, denominator=0) }} as result
 # models/_unit_tests.yml
 unit_tests:
 - name: division_by_zero_is_null
-  model: _mt_safe_divide_safe_divide_division_by_zero_is_null
+  model: _dmt_safe_divide_safe_divide_division_by_zero_is_null
   given: []
   expect:
     format: dict
@@ -102,11 +102,11 @@ unit_tests:
 - **A case with `setup` or `expect.query`** (`Case.model_sql`) is a model of another shape: the
   relations are made with dbt's `make_temp_relation` and `create_table_as(true, ...)` (inside
   `{% if execute %}`: `run_query` does nothing when dbt parses), each is logged
-  (`__mt_relation__`, then the relation as JSON), then the macro runs (`{% do call %}`) and the
+  (`__dmt_relation__`, then the relation as JSON), then the macro runs (`{% do call %}`) and the
   model ends with the query. Dbt renders the model when the test runs, in the one connection it
   gives that test, so the statements run once and a case sees only its own relations. The tool then
-  drops what was logged with a generated `run-operation` (`_mt_drop`, a file of the
-  package, `project/macros/_mt_drop.sql`, written into the generated project: dbt's
+  drops what was logged with a generated `run-operation` (`_dmt_drop`, a file of the
+  package, `project/macros/_dmt_drop.sql`, written into the generated project: dbt's
   `drop_relation_if_exists`, then `adapter.commit()`: without the commit the drop is rolled back
   when dbt closes the connection). A relation that the adapter made temporary in the sense of a
   connection is already gone and the drop does nothing; BigQuery and Trino keep it, and the drop is

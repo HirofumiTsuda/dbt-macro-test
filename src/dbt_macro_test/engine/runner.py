@@ -155,7 +155,7 @@ def drop_relations(
     A temporary relation is gone with its connection on most adapters and stays on some (a table
     that expires, a normal table, ...), and the tool does not tell which: it drops what the models
     logged, which is a no-op for a relation that is already gone. Nothing here is specific to an
-    adapter; the macro that drops (`_mt_drop`) is written into the generated project.
+    adapter; the macro that drops (`_dmt_drop`) is written into the generated project.
     """
     if not relations:
         return []
@@ -165,7 +165,7 @@ def drop_relations(
             "--log-level",
             "none",
             "run-operation",
-            "_mt_drop",
+            "_dmt_drop",
             "--args",
             arguments,
             *_common_args(project_dir, profiles_dir, target),

@@ -226,7 +226,7 @@ leaves behind.
   for any adapter, and the statements it runs are only those, with no DDL of yours. A relation is
   handed to the macro as an argument, `{type: jinja, value: relations.<name>}`: it is dbt's
   `Relation`, which writes itself the way the adapter wants (written into SQL it is the name).
-  The names are `_mt_<UTC timestamp>_<id>_<n>_<name>`, then what the adapter adds.
+  The names are `_dmt_<UTC timestamp>_<id>_<n>_<name>`, then what the adapter adds.
 - **`expect.query`** is a query, whose text is rendered as Jinja so that it can name
   `{{ relations.<name> }}`, and whose result `rows` (or `fixture`) is compared with. The macro is
   run for what it does and its own text is dropped. Without `expect.query` the macro's output is
