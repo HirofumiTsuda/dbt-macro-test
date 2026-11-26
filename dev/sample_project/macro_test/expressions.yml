@@ -23,12 +23,24 @@ macros:
 
   - macro: safe_divide
     cases:
-      - name: divides
+      # The same call gives a different value on another database, so a case for each: two integers
+      # divide to 2.5 on duckdb and to 2 on Postgres. `adapters` says which database a case is for;
+      # on another it is skipped, and the run says so.
+      - name: integer_division_gives_a_fraction
+        adapters: [duckdb]
         given:
           arguments: {numerator: 10, denominator: 4}
         expect:
           rows:
             - {result: 2.5}
+
+      - name: integer_division_drops_the_fraction
+        adapters: [postgres]
+        given:
+          arguments: {numerator: 10, denominator: 4}
+        expect:
+          rows:
+            - {result: 2}
 
       - name: gives_null_when_the_denominator_is_zero
         given:

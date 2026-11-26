@@ -114,6 +114,43 @@ jobs:
       - if: needs.changes.outputs.code != 'false'
         run: uv run pytest
 
+  postgres:
+    # The sample project against a real Postgres (#116): the first adapter other than duckdb. It is not
+    # a required check of main until it has been seen to be stable.
+    name: sample (Postgres)
+    needs: changes
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    env:
+      UV_PYTHON: "3.13"
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: dmt
+          POSTGRES_PASSWORD: dmt
+          POSTGRES_DB: dmt
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dmt -d dmt"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - if: needs.changes.outputs.code != 'false'
+        uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+
+      - if: needs.changes.outputs.code != 'false'
+        run: uv sync --locked --group postgres
+
+      # the connection is the defaults of dev/sample_project/postgres/profiles.yml, which are those of
+      # the container above
+      - if: needs.changes.outputs.code != 'false'
+        run: uv run dbt-macro-test run --project-dir dev/sample_project --profiles-dir dev/sample_project/postgres
+
   docs:
     # The documentation site must build, with a broken link or a missing heading as an error. It
     # runs on every pull request, since that is what it checks (#97).

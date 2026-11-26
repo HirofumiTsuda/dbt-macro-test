@@ -1,6 +1,7 @@
-{# An amount in cents as dollars, to two places by default. #}
+{# An amount in cents as dollars, to two places by default. `/ 100.0`, as two integers divide as
+   integers on Postgres. #}
 {% macro cents_to_dollars(column_name, scale=2) -%}
-    ({{ column_name }} / 100)::numeric(16, {{ scale }})
+    ({{ column_name }} / 100.0)::numeric(16, {{ scale }})
 {%- endmacro %}
 
 {# A division that gives null, and not an error, when the denominator is zero. #}

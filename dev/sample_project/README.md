@@ -9,19 +9,32 @@ A small dbt project of a shop, with duckdb, and a spec in `macro_test/` for each
 ```bash
 pip install dbt-duckdb dbt-macro-test       # in a checkout: uv run dbt-macro-test, as below
 cd dev/sample_project
-dbt-macro-test run                           # 26 cases, all of them pass
+dbt-macro-test run                           # 27 cases: 26 run and pass, 1 is for Postgres
 dbt-macro-test run --list                    # the cases, as macro::case
 dbt-macro-test run --select "price_*"        # some of them
 ```
 
-Nothing has to be set up: the profile is duckdb in memory. dbt writes `target/`, `logs/` and
+Nothing has to be set up: the profile is duckdb in memory. One case is for Postgres, so it is skipped
+and the run says so.
+
+**On Postgres** (what CI does): start a container, install the adapter, and point `--profiles-dir` at
+`postgres/`, whose connection is in `DMT_PG_*` variables with the defaults of the container below.
+The case for duckdb is skipped then, and every other one runs and passes.
+
+```bash
+docker run -d --name dmt-pg -e POSTGRES_USER=dmt -e POSTGRES_PASSWORD=dmt -e POSTGRES_DB=dmt \
+  -p 5432:5432 postgres:17
+pip install dbt-postgres
+dbt-macro-test run --profiles-dir postgres
+```
+ dbt writes `target/`, `logs/` and
 `.user.yml` next to it, which `.gitignore` leaves out.
 
 ## What each file shows
 
 | Spec | Macro | It shows |
 |---|---|---|
-| `expressions.yml` | `cents_to_dollars`, `safe_divide` | a macro that gives a SQL expression: arguments by name, an argument with a default, the rows that are expected |
+| `expressions.yml` | `cents_to_dollars`, `safe_divide` | a macro that gives a SQL expression: arguments by name, an argument with a default, the rows that are expected; and a case for each database where the result differs (`adapters`: two integers divide to `2.5` on duckdb and to `2` on Postgres) |
 | `columns.yml` | `date_parts` | a macro that writes columns of its own (`output: columns`) |
 | `queries.yml` | `all_orders` | a macro that gives a whole select (`output: query`), the relations handed in as subqueries |
 | `text.yml` | `order_code`, `slug` | a macro that returns text that is not SQL (`output: text`) |

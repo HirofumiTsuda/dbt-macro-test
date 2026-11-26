@@ -29,7 +29,7 @@ the macro you have, and every key of a spec.
 - **Made for CI.** Exit code 0, 1 or 2, `--select`, Linux and Windows, dbt-core 1.8 and later, and
   an example for GitHub Actions below.
 
-**Status: alpha.** The interface may still change. It has been tried on duckdb only (see
+**Status: alpha.** The interface may still change. It has been run on duckdb and on Postgres (the sample project, in CI) and on no other adapter (see
 [What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
 
 This project is independent and is not affiliated with or endorsed by dbt Labs. "dbt" is a
@@ -105,6 +105,10 @@ actual differs from expected:
 
 Both outputs are trimmed (dbt's start-up lines and the timestamps are left out). They are from
 running exactly this, in a new project with a duckdb profile and the tool installed as above.
+
+The expected values are those of duckdb. On Postgres, `10 / 4` divides two integers as integers and
+gives `2`, so the first case there would fail; a case can be limited to some adapters with
+`adapters` (see the [guide](https://hirofumitsuda.github.io/dbt-macro-test/guide/#a-case-for-one-database)).
 <!-- --8<-- [end:quickstart] -->
 
 **Next:** [what to write for your macro](#what-to-write-for-your-macro): an error, a warning, text, a `ref`, a macro that writes.
@@ -275,8 +279,8 @@ Each of these has an issue.
   which macros were called ([#16](https://github.com/HirofumiTsuda/dbt-macro-test/issues/16)).
 - dbt Fusion ([#23](https://github.com/HirofumiTsuda/dbt-macro-test/issues/23)); the tool runs
   dbt-core in-process.
-- Adapters other than duckdb: the tool leaves the work to dbt, so others may well work, but
-  none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
+- Adapters other than duckdb and Postgres: the tool leaves the work to dbt, so others may well work,
+  but none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
 
 The tool runs dbt through `dbtRunner`, dbt's programmatic entry point. It also uses three
 things that are not a documented interface: the project file, read with

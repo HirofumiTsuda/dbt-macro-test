@@ -51,6 +51,9 @@ dev = [
     "ruff>=0.17.6",
     "types-pyyaml>=6.0.12.20261122",
 ]
+postgres = [
+    "dbt-postgres>=1.11.0",
+]
 security = [
     "pip-audit>=2.10.1",
 ]
