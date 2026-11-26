@@ -1,0 +1,12 @@
+# A macro that writes columns of its own: `output: columns`, and the rows use the names it gives.
+macros:
+  - macro: date_parts
+    cases:
+      - name: splits_a_date_into_year_and_month
+        given:
+          arguments:
+            date_expression: "cast('2024-03-15' as date)"
+        output: columns
+        expect:
+          rows:
+            - {year: 2024, month: 3}

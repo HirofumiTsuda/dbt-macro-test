@@ -1,0 +1,38 @@
+# A macro that gives a SQL expression: the case says what it should be worth.
+# Arguments go in by name. A value is written into the SQL as it is, so a string is "'text'".
+# The macro's value is the column `result` of the rows that are expected.
+macros:
+  - macro: cents_to_dollars
+    cases:
+      - name: converts_cents_to_dollars
+        given:
+          arguments:
+            column_name: 1250
+        expect:
+          rows:
+            - {result: 12.50}
+
+      - name: the_scale_can_be_given            # an argument with a default, given this time
+        given:
+          arguments:
+            column_name: 1250
+            scale: 0
+        expect:
+          rows:
+            - {result: 13}
+
+  - macro: safe_divide
+    cases:
+      - name: divides
+        given:
+          arguments: {numerator: 10, denominator: 4}
+        expect:
+          rows:
+            - {result: 2.5}
+
+      - name: gives_null_when_the_denominator_is_zero
+        given:
+          arguments: {numerator: 10, denominator: 0}
+        expect:
+          rows:
+            - {result: null}

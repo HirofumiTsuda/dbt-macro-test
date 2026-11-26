@@ -142,6 +142,8 @@ has the evidence for the gap and the prior art.
 
 ## What a spec can say
 
+[`dev/sample_project`](https://github.com/HirofumiTsuda/dbt-macro-test/tree/main/dev/sample_project) is a small dbt project with a spec for each of the things below: one to read, and to try a change on.
+
 Arguments are given by name. A case can expect rows (written out, as csv or SQL, or in a file),
 an error, or a warning; it can return a whole `select`, several columns, a value of a
 composite type, or text that is not SQL (a slug, the text of a `merge`), or a macro that runs statements, such as an upsert, checked by the rows it leaves in relations the tool makes for the case (this one writes: read [the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)); and it can override macros, `vars` and environment variables for that case. All

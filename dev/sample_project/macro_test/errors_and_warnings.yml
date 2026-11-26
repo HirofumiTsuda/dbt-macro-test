@@ -1,0 +1,31 @@
+# A macro that stops with an error, or that warns, is tested for what it says.
+# `message` is text that the error or the warning contains. A case of either runs in a run of
+# dbt of its own, so that it can be told from the others.
+macros:
+  - macro: quantity
+    cases:
+      - name: gives_a_quantity_that_is_not_negative
+        given:
+          arguments: {value: 3}
+        expect:
+          rows:
+            - {result: 3}
+
+      - name: stops_with_an_error_when_it_is_negative
+        given:
+          arguments: {value: -5}
+        expect:
+          error:
+            message: quantity must not be negative, got -5
+
+  - macro: status
+    cases:
+      - name: gives_the_status_and_warns_that_pending_is_going_away
+        given:
+          arguments:
+            value: pending
+        expect:
+          rows:
+            - {result: pending}      # the rows have to match as well
+          warning:
+            message: "status 'pending' is deprecated"

@@ -1,0 +1,23 @@
+# A macro that returns text that is not SQL: `output: text`. The text is compared as it is
+# (blank space at the two ends is dropped). Without it `ORD-000042` would be read as SQL.
+macros:
+  - macro: order_code
+    cases:
+      - name: pads_the_number_to_six_digits
+        given:
+          arguments: {prefix: ORD, number: 42}
+        output: text
+        expect:
+          rows:
+            - {result: ORD-000042}
+
+  - macro: slug
+    cases:
+      - name: makes_an_address_of_a_name
+        given:
+          arguments:
+            name: "Blue Widget (Large)!"
+        output: text
+        expect:
+          rows:
+            - {result: blue-widget-large}
