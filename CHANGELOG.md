@@ -6,6 +6,10 @@ All notable changes are listed here, newest first. The format follows
 
 ## [Unreleased]
 
+<!-- Each version starts, under its heading and before the first ###, with a paragraph that says
+     what it is for. It is the head of the GitHub release, which the release workflow makes from
+     this entry (.github/scripts/release_notes.py), and a release without it does not get built. -->
+
 ### Changed
 
 - The sample project runs on Postgres as well as duckdb (a CI job runs it against a Postgres
@@ -29,6 +33,9 @@ All notable changes are listed here, newest first. The format follows
   sample on Postgres (#116).
 
 ## [0.2.0] - 2026-11-26
+
+Test more kinds of dbt macros: ones that read a model (`ref`, `source`), ones that write to tables,
+and ones that return text or a statement. The models the tool generates are named `_dmt_…` now.
 
 ### Changed
 
@@ -75,7 +82,8 @@ All notable changes are listed here, newest first. The format follows
 
 ## [0.1.0] - 2026-11-25
 
-The first release.
+The first release. Test a dbt macro like a function: call it with the arguments you choose, say what it
+should return in a few lines of YAML, and run it on your machine or in CI, as dbt's own unit tests.
 
 ### Added
 
