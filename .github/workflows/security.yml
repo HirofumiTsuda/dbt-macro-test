@@ -1,0 +1,55 @@
+name: Security
+
+# The dependencies against known vulnerabilities (#67): the Python ones, from uv.lock, with pip-audit
+# (a PyPA tool, pinned in the `security` group of uv.lock; `uv audit` does the same but says it is
+# experimental), and those of the documentation site, from its lock file, with npm audit. A new
+# advisory can appear without any change here, so it runs every week as well as when a lock file
+# changes. It is not a required check of main until it has been seen to be stable.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+    paths:
+      - "uv.lock"
+      - "pyproject.toml"
+      - "website/package-lock.json"
+      - "website/package.json"
+      - ".github/workflows/security.yml"
+  schedule:
+    - cron: "0 1 * * 1"   # Mondays, 10:00 in Tokyo
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    name: dependencies (Python)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+
+      # what the project installs (its dependencies and the dev group), pinned as in uv.lock
+      - run: uv export --frozen --no-emit-project --no-hashes -o requirements.txt
+
+      - run: uv run --frozen --only-group security pip-audit -r requirements.txt --no-deps --disable-pip
+
+  site:
+    name: dependencies (site)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: website
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: website/.node-version
+
+      # the lock file is enough, nothing is installed; only high and critical advisories fail it
+      - run: npm audit --package-lock-only --audit-level=high
