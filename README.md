@@ -102,20 +102,29 @@ running exactly this, in a new project with a duckdb profile and the tool instal
 
 ## Why this exists
 
-dbt's unit tests are for models. To test a macro, you wrap it in a model that calls it, and write a
-unit test of that model. People do this by hand, and keep asking for something better:
+Although dbt macros are useful, it is not straightforward to test them. dbt's own unit tests are for
+models, so this is what people do today, and where each puts its tests:
 
-- [dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547), "Unit test support for
-  macros": opened in August 2024 and, as of November 2026, still open (10 comments, 21 👍). It
-  names this workaround as the alternative and calls it cumbersome.
-- [A write-up of the workaround](https://www.dumky.net/posts/unit-testing-dbt-macros-a-workaround-for-dbts-unit-testing-limitations/)
-  (March 2025): a dummy model that applies the macro, with a unit test on it, which its author
-  says is "not as good as having native support for macro testing".
-- [EqualExperts/dbt-unit-testing](https://github.com/EqualExperts/dbt-unit-testing), the package
-  for testing models, answered in January 2024 that it had no plans to support macros.
+| Approach | How | Where the tests live |
+|---|---|---|
+| A model that calls the macro, with a native unit test of it, by hand ([a write-up](https://www.dumky.net/posts/unit-testing-dbt-macros-a-workaround-for-dbts-unit-testing-limitations/), March 2025) | the macro's output is the model's, and dbt compares it | your project's `models/`, so in its manifest, next to the real models |
+| [`dbt-unittest`](https://github.com/yu-iskw/dbt-unittest) | assertion macros (`assert_equals`, ...), run with `dbt run-operation` | your project's `macros/` |
+| A dedicated testing project, as dbt packages do (`dbt-utils` has an [`integration_tests`](https://github.com/dbt-labs/dbt-utils/tree/main/integration_tests) project; see [the dbt blog](https://docs.getdbt.com/blog/unit-testing-dbt-packages)) | seeds, models and tests of its own | a second project, written and kept by hand |
+| [`pytest-dbt-core`](https://github.com/godatadriven/pytest-dbt-core) | a pytest plugin; its docs test a macro through a fixture | Python files |
+| [`dbt-unit-testing`](https://github.com/EqualExperts/dbt-unit-testing) | tests models, not macros; it said in January 2024 that it had no plans to support macros | |
 
-This tool is that workaround, generated: one YAML spec under `macro_test/`, one command, and the
-exit codes a CI job needs. dbt does the running, so what it reports is dbt's.
+Native support has been asked for in
+[dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547) since August 2024; as of November
+2026 it is still open (10 comments, 21 👍). The request itself describes the first approach as
+cumbersome, since the test models would sit in `models/` where they "could conflict with real models
+and make discoverability harder", and says a dedicated testing project "would introduce a lot of
+overhead".
+
+This tool is that dedicated testing project, generated: from one YAML spec under `macro_test/` it
+writes the wrapper models and the unit tests into a temporary project and has dbt run them. Nothing
+is added to your project or to its manifest (after a run, the files of the project are the same, byte
+for byte, apart from the `.user.yml` that dbt itself writes), and a CI job needs one command and its
+exit codes.
 
 *I built it after running into this at work.*
 
