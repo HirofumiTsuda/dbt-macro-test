@@ -116,8 +116,9 @@ unit_tests:
   gives that test, so the statements run once and a case sees only its own relations. The tool then
   drops what was logged with a generated `run-operation` (`_dmt_drop`, a file of the
   package, `project/macros/_dmt_drop.sql`, written into the generated project: dbt's
-  `drop_relation_if_exists`, then `adapter.commit()`: without the commit the drop is rolled back
-  when dbt closes the connection). A relation that the adapter made temporary in the sense of a
+  `get_drop_sql` run with `auto_begin=True`, then `adapter.commit()`: without the commit duckdb rolls the
+  drop back when dbt closes the connection, and without the transaction Postgres, whose drop opens
+  none, fails the commit). A relation that the adapter made temporary in the sense of a
   connection is already gone and the drop does nothing; BigQuery and Trino keep it, and the drop is
   what removes it. Nothing in this is specific to an adapter.
 
