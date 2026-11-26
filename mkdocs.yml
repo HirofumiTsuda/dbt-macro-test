@@ -1,3 +1,6 @@
+# The configuration of the documentation site. It is built by Zensical (`zensical build`), which
+# reads this file as it is; the name stays mkdocs.yml, which is what Zensical recommends for a project
+# that comes from MkDocs.
 site_name: dbt-macro-test
 site_description: Test your dbt macros.
 site_url: https://hirofumitsuda.github.io/dbt-macro-test/

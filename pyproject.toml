@@ -52,7 +52,7 @@ dev = [
     "types-pyyaml>=6.0.12.20261122",
 ]
 docs = [
-    "mkdocs-material>=9.8.2",
+    "zensical>=0.1.3",
 ]
 
 [tool.ruff]

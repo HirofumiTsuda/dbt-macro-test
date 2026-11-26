@@ -295,9 +295,10 @@ failure without the workers, use `uv run pytest -n 0 path/to/test.py::test_name`
 suite on Python 3.11 to 3.14, on dbt-core 1.8, and on Windows; dbt-core 1.9, 1.10 and 1.11 were
 each run once by hand.
 
-The documentation site is MkDocs (Material) over `docs/`, the README and the changelog
-(`mkdocs.yml`). To see it while you edit, `uv run --group docs mkdocs serve`; CI builds it with
-`mkdocs build --strict`, so a broken link fails, and publishes it when `main` changes.
+The documentation site is [Zensical](https://zensical.org/) over `docs/`, the README and the
+changelog; it reads `mkdocs.yml`. To see it while you edit, `uv run --group docs zensical serve`;
+CI builds it with `zensical build --strict`, so a broken link fails, and publishes it when `main`
+changes.
 
 The dependencies in `uv.lock` and the pinned actions of the workflows are kept up to date by
 Dependabot (`.github/dependabot.yml`): once a week, one pull request for the actions and one for
