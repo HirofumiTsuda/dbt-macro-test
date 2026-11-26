@@ -98,6 +98,15 @@ unit_tests:
 - Packages: when the real project's are installed, they are used as they are (`packages-install-path`
   points at them) and `dbt deps` is not run; otherwise `packages.yml` is copied, with relative
   `local:` paths made absolute, and `dbt deps` runs in the temporary directory.
+- **A case with `given.inputs`** gets a stand-in node for each `ref` and `source` it names
+  (`StandIns`, in `project/generate.py`: a model `select 1 as stand_in`, a source with the table;
+  never built), so that dbt can resolve what the macro calls. The data is the `given` of the unit
+  test, and always `format: sql`: for rows written as mappings dbt asks the warehouse for the
+  columns of the upstream relation and fails when it is not there, which a stand-in never is. The
+  rows of the spec are turned into a `select ... union all ...` (`GivenInput.select_sql`) with
+  plain values only: Jinja in that text is rendered when dbt parses, where dbt's macros (the
+  quoting of a string, adapter by adapter) are not available, so a string with a quote, a
+  backslash or Jinja is written with `sql` instead.
 - Fixture files (`fixture: name`) are copied to `tests/fixtures/` of the generated project.
 - **A case with `setup` or `expect.query`** (`Case.model_sql`) is a model of another shape: the
   relations are made with dbt's `make_temp_relation` and `create_table_as(true, ...)` (inside
@@ -197,9 +206,8 @@ once by hand).
 
 The README lists what is not supported, each with its issue. The ones that shape the design:
 
-- **Every case is a unit test of a model, which runs in the warehouse.** A macro that needs a
-  `ref` or a `source` to exist (#9), one that returns text that is not SQL (#29), one that runs DML
-  (#30) and the return value of a macro without a database (#11) do not fit in it yet.
+- **Every case is a unit test of a model, which runs in the warehouse.** The return value of a
+  macro without a database (#11) does not fit in it yet.
 - **The result is compared as rows.** That is what dbt compares, and what the tool leaves to it.
 - **Only duckdb has been run**, so what a macro does on another adapter, and how a csv cell for a
   composite value is read by it, has not been seen (#14).

@@ -474,3 +474,48 @@ def test_directory_is_searched_recursively(tmp_path: Path) -> None:
 def test_directory_without_specs_is_an_error(tmp_path: Path) -> None:
     with pytest.raises(SpecError, match="no spec files"):
         find_spec_files(tmp_path)
+
+
+def inputs_case(inputs: str) -> str:
+    return (
+        "macros:\n  - macro: m\n    cases:\n      - name: a\n        expect: {rows: [{r: 1}]}\n"
+        f"        given:\n          inputs:\n{inputs}"
+    )
+
+
+def test_a_case_can_give_the_rows_of_a_ref_and_of_a_source(tmp_path: Path) -> None:
+    text = inputs_case(
+        "            - {input: \"ref('orders')\", rows: [{id: 1}]}\n"
+        "            - {input: \"source('shop', 'payments')\", sql: 'select 2 as id'}\n"
+    )
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert [i.reference for i in case.inputs] == ["ref('orders')", "source('shop', 'payments')"]
+    assert case.inputs[0].rows == ({"id": 1},)
+    assert case.inputs[1].sql == "select 2 as id"
+    assert case.arguments == {}
+
+
+@pytest.mark.parametrize(
+    ("inputs", "message"),
+    [
+        ("            - {rows: [{id: 1}]}\n", "'input'"),
+        ("            - {input: orders, rows: [{id: 1}]}\n", "is not ref('model')"),
+        ("            - {input: \"ref('p', 'orders')\", rows: [{id: 1}]}\n", "not supported"),
+        ("            - {input: \"source('orders')\", rows: [{id: 1}]}\n", "its table"),
+        ("            - {input: \"ref('o')\"}\n", "exactly one of 'rows' and 'sql'"),
+        ("            - {input: \"ref('o')\", rows: []}\n", "at least one row"),
+        ('            - {input: "ref(\'o\')", rows: [{s: "it\'s"}]}\n', "use `sql` for it"),
+        (
+            "            - {input: \"ref('o')\", rows: [{id: 1}]}\n"
+            "            - {input: \"ref('o')\", rows: [{id: 2}]}\n",
+            "is given twice",
+        ),
+    ],
+)
+def test_invalid_inputs_are_reported(tmp_path: Path, inputs: str, message: str) -> None:
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, inputs_case(inputs)))
+
+    assert message in str(error.value)

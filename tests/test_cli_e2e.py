@@ -1075,3 +1075,77 @@ def test_run_stops_when_the_installed_packages_do_not_match_packages_yml(
 
     assert result.exit_code == 2
     assert "Error: dbt test could not run; see dbt's message above" in result.output
+
+
+def write_ref_macros(project: Path) -> None:
+    (project / "macros" / "refs.sql").write_text(
+        "{% macro orders_count() %}(select count(*) from {{ ref('orders') }}){% endmacro %}\n"
+        "{% macro paid_total() %}(select sum(amount) from {{ source('shop', 'payments') }}"
+        " where status = 'paid'){% endmacro %}\n"
+    )
+
+
+def test_a_macro_that_calls_ref_and_source_is_given_their_rows(project: Path) -> None:
+    write_ref_macros(project)
+    spec = project / "macro_test" / "refs.yml"
+    spec.write_text(
+        """macros:
+  - macro: orders_count
+    cases:
+      - name: counts_the_given_rows
+        given:
+          inputs:
+            - {input: "ref('orders')", rows: [{id: 10}, {id: 20}, {id: 30}]}
+        expect: {rows: [{result: 3}]}
+  - macro: paid_total
+    cases:
+      - name: adds_up_the_paid_payments
+        given:
+          inputs:
+            - input: source('shop', 'payments')
+              rows:
+                - {amount: 100, status: paid}
+                - {amount: 50, status: refunded}
+                - {amount: 25, status: paid}
+        expect: {rows: [{result: 125}]}
+"""
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 0, result.output
+    assert "2 passed" in result.output
+
+
+def test_a_wrong_expectation_on_the_rows_of_a_ref_fails(project: Path) -> None:
+    write_ref_macros(project)
+    spec = project / "macro_test" / "refs.yml"
+    spec.write_text(
+        """macros:
+  - macro: orders_count
+    cases:
+      - name: counts_the_given_rows
+        given:
+          inputs:
+            - {input: "ref('orders')", rows: [{id: 10}, {id: 20}]}
+        expect: {rows: [{result: 3}]}
+"""
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output
+
+
+def test_a_ref_that_no_case_gives_is_said_to_belong_under_given_inputs(project: Path) -> None:
+    write_ref_macros(project)
+    write_spec(
+        project / "macro_test", "refs.yml", "orders_count", "nothing_given", rows=[{"result": 0}]
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "refs.yml")])
+
+    assert result.exit_code == 2
+    assert "'orders'" in result.output
+    assert "given.inputs" in result.output

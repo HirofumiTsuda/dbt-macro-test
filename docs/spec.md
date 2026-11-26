@@ -13,6 +13,7 @@ macros:                       # required: a list
           arguments:          # by name; see "Arguments"
             numerator: 10
             denominator: 4
+          inputs: []          # optional: the rows of the ref()s and source()s the macro calls; see "A macro that calls ref or source"
         output: expression    # optional: expression (default), columns, query or text
         overrides: {}         # optional: macros, vars and env_vars; see "Overrides"
         setup: {}             # optional: relations made for the case; see "A macro that writes"
@@ -264,6 +265,50 @@ Not tried: any adapter other than duckdb (the table is the code, not a run); a m
 names say when the relations were made, so a leftover can be found and removed by hand). A macro that
 reads the `config`, `this` or `is_incremental()` of the model it runs in sees the generated model's,
 as for `output: text`.
+
+## A macro that calls ref or source
+
+A macro that reads a model or a source itself (`{{ ref('orders') }}`, `{{ source('shop', 'payments') }}`)
+needs them to exist, and the generated project has none of your models. Give the rows the macro is
+to see under `given.inputs`, as dbt's own unit tests do:
+
+```yaml
+macros:
+  - macro: orders_with_status
+    cases:
+      - name: counts_the_orders_that_have_the_status
+        given:
+          arguments: {status: "'open'"}
+          inputs:
+            - input: ref('orders')           # or source('shop', 'payments')
+              rows:                          # or `sql: select 1 as id, 'open' as status`
+                - {id: 1, status: open}
+                - {id: 2, status: shipped}
+        expect:
+          rows:
+            - {result: 1}
+```
+
+- **The rows are all the data there is.** The tool writes a stand-in for each node (a model
+  `select 1 as stand_in`, a source with the table), which is never built; nothing of your models or
+  your warehouse is read.
+- `input` is `ref('model')` or `source('source', 'table')`. A `ref` of a model of a package,
+  `ref('package', 'model')`, is not supported. An input given twice in a case is an error.
+- `rows` are mappings with the same columns in each. The tool turns them into a `select ... union all
+  ...` and hands that to dbt, since for rows given as mappings dbt asks the warehouse for the columns
+  of the relation and fails when it is not there. Only plain values are written: numbers, booleans,
+  null and strings **without a quote, a backslash or Jinja**; how to quote those differs between
+  warehouses, and the text is read where dbt's macros for it are not available. For anything else
+  write the select yourself with `sql`, which is kept as it is.
+- A `ref` or a `source` that the macro calls and that no case gives stops the run with dbt's message
+  and a note that says it belongs under `given.inputs`. A stand-in exists for every node that **any**
+  case names, so a case that leaves one out gets dbt's error for that case only.
+- **The rows are seen by the final `select` only.** dbt gives an input to the model as a CTE
+  (`__dbt__cte__orders`, as for an ephemeral model), which exists in the query that dbt compares and
+  not in a statement that the macro sends by itself. So `output` works with inputs (the call is
+  part of that query), and a macro that reads a `ref` inside `run_query` or a `statement` block
+  does not: dbt answers `Table with name __dbt__cte__orders does not exist`. For such a macro give
+  the relation as an argument and make it with `setup`.
 
 ## Overrides
 

@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import tempfile
 from collections.abc import Generator
@@ -224,7 +225,23 @@ def _run_dbt(
             install_packages=install_packages,
         )
     except DbtError as e:
+        _hint_about_inputs(str(e))
         raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
+
+
+_MISSING_NODE = re.compile(r"depends on a node named '([^']+)' which was not found")
+
+
+def _hint_about_inputs(reason: str) -> None:
+    """When dbt could not find a `ref` or a `source` that a macro calls, say where it goes."""
+    match = _MISSING_NODE.search(reason)
+    if match:
+        click.echo(
+            f"\nA macro calls '{match.group(1)}' and no case gives it. Give the rows it is to see "
+            "under `given.inputs` (`- input: ref('name')` or `source('source', 'table')`, with "
+            "`rows` or `sql`); the tool makes a stand-in for the node and reads no real data.",
+            err=True,
+        )
 
 
 def _warn_left_behind(names: list[str]) -> None:

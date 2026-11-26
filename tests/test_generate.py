@@ -320,3 +320,50 @@ def test_each_case_of_a_project_has_names_of_its_own() -> None:
     second = next(v for k, v in files.items() if k.endswith("second.sql"))
     assert '"_dmt_r_0_t"' in first and '"_dmt_r_1_t"' not in first
     assert '"_dmt_r_1_t"' in second and '"_dmt_r_0_t"' not in second
+
+
+def test_inputs_become_stand_in_nodes_and_the_given_of_the_unit_test_in_sql() -> None:
+    from dbt_macro_test.spec import GivenInput
+
+    case = Case(
+        name="a",
+        arguments={},
+        expect=InlineRows("dict", [{"result": 1}]),
+        inputs=(
+            GivenInput("ref", ("orders",), rows=({"id": 1},)),
+            GivenInput("source", ("shop", "payments"), sql="select 2 as order_id"),
+        ),
+    )
+    other = Case(
+        name="b",
+        arguments={},
+        expect=InlineRows("dict", [{"result": 1}]),
+        inputs=(GivenInput("ref", ("orders",), rows=({"id": 9},)),),
+    )
+    spec = SpecFile(Path("/p/m/s.yml"), [MacroSpec("m", [case, other])])
+
+    files = build_files(RAW, Path("/p"), Path("/p/m"), [spec], run_id="r")
+
+    assert files["models/orders.sql"] == "select 1 as stand_in\n"  # once, for both cases
+    assert yaml.safe_load(files["models/_sources.yml"]) == {
+        "sources": [{"name": "shop", "tables": [{"name": "payments"}]}]
+    }
+    given_a, given_b = (
+        t["given"] for t in yaml.safe_load(files["models/_unit_tests.yml"])["unit_tests"]
+    )
+    assert given_a == [
+        {"input": "ref('orders')", "format": "sql", "rows": "select 1 as id"},
+        {"input": "source('shop', 'payments')", "format": "sql", "rows": "select 2 as order_id"},
+    ]
+    assert given_b[0]["rows"] == "select 9 as id"
+
+
+def test_a_project_without_inputs_has_no_stand_in_nodes() -> None:
+    spec = SpecFile(Path("/p/m/s.yml"), [MacroSpec("m", [sql_case(query="select 1")])])
+
+    files = build_files(RAW, Path("/p"), Path("/p/m"), [spec], run_id="r")
+
+    assert "models/_sources.yml" not in files
+    assert [k for k in files if k.startswith("models/") and "_dmt_" not in k] == [
+        "models/_unit_tests.yml"
+    ]

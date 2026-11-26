@@ -1,0 +1,32 @@
+# A macro that calls `ref()` or `source()` itself. The rows it is to see are given under
+# `given.inputs`, as in dbt's own unit tests: all the data there is. The tool makes a stand-in for
+# the node, which is never built, so nothing of your models or your warehouse is read.
+#
+# Strings with a quote, a backslash or Jinja in them are written with `sql:` instead of `rows:`,
+# since how to quote them differs between warehouses.
+macros:
+  - macro: orders_with_status
+    cases:
+      - name: counts_the_orders_that_have_the_status
+        given:
+          arguments: {status: "'open'"}
+          inputs:
+            - input: ref('orders')
+              rows:
+                - {id: 1, status: open}
+                - {id: 2, status: shipped}
+                - {id: 3, status: open}
+        expect:
+          rows:
+            - {result: 2}
+
+  - macro: paid_total
+    cases:
+      - name: adds_up_the_payments_that_are_paid
+        given:
+          inputs:
+            - input: source('shop', 'payments')
+              sql: select 100 as amount, 'paid' as status union all select 50, 'refunded' union all select 25, 'paid'
+        expect:
+          rows:
+            - {result: 125}

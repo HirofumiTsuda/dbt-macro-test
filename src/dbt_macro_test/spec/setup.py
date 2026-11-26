@@ -1,6 +1,7 @@
 import json
 import math
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -50,8 +51,30 @@ def sql_value(value: Any) -> str:
     raise TypeError(f"cannot write a {type(value).__name__} in rows; use `sql` for it")
 
 
-def rows_to_select(rows: tuple[dict[str, Any], ...] | list[dict[str, Any]]) -> str:
-    """A select that returns the rows: `select 1 as id, 'a' as v union all select 2, 'b'`."""
+def plain_value(value: Any) -> str:
+    """One value of a row as SQL, written without Jinja or dbt's macros, which are not there where
+    an input of a unit test is read. A number, a boolean or null as they are; a string only when
+    quoting it is the same on every warehouse, that is, when it has no quote, backslash or Jinja."""
+    if isinstance(value, str):
+        bad = [c for c in ("'", "\\", "{{", "{%", "{#") if c in value]
+        if bad:
+            raise ValueError(
+                f"cannot write {value!r} in rows, since it has {bad[0]!r} and how to quote that "
+                "differs between warehouses; use `sql` for it"
+            )
+        return f"'{value}'"
+    if value is None or isinstance(value, bool | int | float):
+        return sql_value(value)
+    raise TypeError(f"cannot write a {type(value).__name__} in rows; use `sql` for it")
+
+
+def rows_to_select(
+    rows: tuple[dict[str, Any], ...] | list[dict[str, Any]],
+    value_sql: Callable[[Any], str] = sql_value,
+) -> str:
+    """A select that returns the rows: `select 1 as id, 'a' as v union all select 2, 'b'`.
+
+    `value_sql` writes one value; the default quotes a string with dbt's own macro."""
     columns = list(rows[0])
     for column in columns:
         if not isinstance(column, str) or not _COLUMN.match(column):
@@ -61,7 +84,7 @@ def rows_to_select(rows: tuple[dict[str, Any], ...] | list[dict[str, Any]]) -> s
         if list(row) != columns:
             raise ValueError(f"row {i} has the columns {list(row)}, not {columns}")
         if i == 0:
-            selects.append("select " + ", ".join(f"{sql_value(row[c])} as {c}" for c in columns))
+            selects.append("select " + ", ".join(f"{value_sql(row[c])} as {c}" for c in columns))
         else:
-            selects.append("select " + ", ".join(sql_value(row[c]) for c in columns))
+            selects.append("select " + ", ".join(value_sql(row[c]) for c in columns))
     return "\nunion all\n".join(selects)

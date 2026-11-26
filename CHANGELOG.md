@@ -15,6 +15,15 @@ All notable changes are listed here, newest first. The format follows
 
 ### Added
 
+- `given.inputs`: a macro that calls `ref()` or `source()` itself (`dbt_utils.star` on a model,
+  `basic_aggregation` over rows) is given the rows it is to see, as `rows` or a `select`. The tool
+  writes a stand-in for each node, which is never built, and hands the rows to dbt as a select,
+  since for rows written as mappings dbt asks the warehouse for the columns of the upstream
+  relation. No real data is read. A string with a quote, a backslash or Jinja is written with
+  `sql`. A `ref` that no case gives is said to belong under `given.inputs`. The rows are seen by the
+  final `select` only, not by a statement the macro runs by itself (`run_query`). Only duckdb has been
+  tried.
+
 - `output: text`: a macro that returns text that is not SQL (a slug such as `dbt_utils.slugify`,
   the text of a `merge`) is compared as text. The text is returned as one string, with a single
   quote escaped by dbt's own macro and the blank space at both ends dropped. Only duckdb has been
