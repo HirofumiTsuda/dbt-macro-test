@@ -2,8 +2,9 @@
 # `given.inputs`, as in dbt's own unit tests: all the data there is. The tool makes a stand-in for
 # the node, which is never built, so nothing of your models or your warehouse is read.
 #
-# Strings with a quote, a backslash or Jinja in them are written with `sql:` instead of `rows:`,
-# since how to quote them differs between warehouses.
+# Instead of `rows:`, an input can be a select of your own: `sql: select 1 as id, 'open' as status`.
+# Strings with a quote, a backslash or Jinja in them have to be written that way, since how to
+# quote them differs between warehouses.
 macros:
   - macro: orders_with_status
     cases:
@@ -25,8 +26,11 @@ macros:
       - name: adds_up_the_payments_that_are_paid
         given:
           inputs:
-            - input: source('shop', 'payments')
-              sql: select 100 as amount, 'paid' as status union all select 50, 'refunded' union all select 25, 'paid'
+            - input: source('shop', 'payments')   # a source is given the same way as a ref
+              rows:
+                - {amount: 100, status: paid}
+                - {amount: 50, status: refunded}
+                - {amount: 25, status: paid}
         expect:
           rows:
             - {result: 125}
