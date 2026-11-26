@@ -1,6 +1,4 @@
-# dbt-macro-test
-
-**Test your dbt macros.**
+# Test your dbt macros
 
 Call a macro with the arguments you choose, say what it should return, and run it on your machine
 or in CI. A test is a few lines of YAML; the tool turns each case into one of dbt's own unit tests,
