@@ -188,6 +188,98 @@ def test_invalid_warning_expectations_are_reported(
     assert message in str(error.value)
 
 
+def setup_case(extra: str = "", expect: str = "{rows: [{r: 1}], query: select 1 as r}") -> str:
+    return f"macros:\n  - macro: m\n    cases:\n      - name: a\n        expect: {expect}\n{extra}"
+
+
+def test_a_case_can_make_relations_and_give_a_query_to_compare(tmp_path: Path) -> None:
+    text = setup_case(
+        "        setup:\n          relations:\n"
+        "            target: {rows: [{id: 1, v: a}]}\n"
+        "            source: {sql: 'select 2 as id'}\n"
+    )
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert [r.name for r in case.setup] == ["target", "source"]
+    assert case.setup[0].rows == ({"id": 1, "v": "a"},)
+    assert case.setup[1].sql == "select 2 as id"
+    assert case.query == "select 1 as r"
+    assert case.runs_own_sql is True
+
+
+def test_a_case_without_sql_of_its_own_is_as_before(tmp_path: Path) -> None:
+    (case,) = load_spec_file(write(tmp_path, case_with("{rows: [{r: 1}]}"))).macros[0].cases
+
+    assert (case.setup, case.query, case.runs_own_sql) == ((), None, False)
+
+
+def test_relations_without_a_query_make_a_case_that_runs_its_own_sql(tmp_path: Path) -> None:
+    text = setup_case("        setup: {relations: {t: {sql: select 1}}}\n", "{rows: [{r: 1}]}")
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert (case.query, case.runs_own_sql) == (None, True)
+
+
+@pytest.mark.parametrize(
+    ("extra", "expect", "message"),
+    [
+        ("        setup: [t]\n", "{rows: []}", "setup: must be a mapping"),
+        ("        setup: {}\n", "{rows: []}", "missing required key 'relations'"),
+        ("        setup: {relations: {}}\n", "{rows: []}", "must have at least one relation"),
+        (
+            "        setup: {relations: {t: {}}}\n",
+            "{rows: []}",
+            "needs exactly one of 'rows' and 'sql'",
+        ),
+        (
+            "        setup: {relations: {t: {rows: [{a: 1}], sql: select 1}}}\n",
+            "{rows: []}",
+            "needs exactly one of 'rows' and 'sql'",
+        ),
+        ("        setup: {relations: {t: {sql: ''}}}\n", "{rows: []}", "must be a select, as text"),
+        (
+            "        setup: {relations: {t: {rows: []}}}\n",
+            "{rows: []}",
+            "must have at least one row",
+        ),
+        ("        setup: {relations: {t: {rows: [1]}}}\n", "{rows: []}", "must be a mapping"),
+        (
+            "        setup: {relations: {t: {rows: [{a: 1}, {b: 2}]}}}\n",
+            "{rows: []}",
+            "row 1 has the columns",
+        ),
+        (
+            "        setup: {relations: {t: {rows: [{a: [1]}]}}}\n",
+            "{rows: []}",
+            "use `sql` for it",
+        ),
+        (
+            "        setup: {relations: {'a b': {sql: select 1}}}\n",
+            "{rows: []}",
+            "is not a relation name",
+        ),
+        (
+            "        setup: {relations: {t: {sql: select 1}}, sql: [x]}\n",
+            "{rows: []}",
+            "unknown key(s): sql",
+        ),
+        ("", "{rows: [], query: ''}", "must be the SQL of a query"),
+        ("", "{rows: [], query: 3}", "must be the SQL of a query"),
+        ("", "{error: {message: x}, query: select 1}", "no query to compare"),
+        ("        output: query\n", "{rows: [], query: select 1}", "give one or the other"),
+    ],
+)
+def test_invalid_setup_and_query_are_reported(
+    tmp_path: Path, extra: str, expect: str, message: str
+) -> None:
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, setup_case(extra, expect)))
+
+    assert message in str(error.value)
+
+
 def test_output_can_be_query(tmp_path: Path) -> None:
     text = (
         "macros:\n  - macro: x\n    cases:\n      - {name: a, output: query, expect: {rows: []}}\n"

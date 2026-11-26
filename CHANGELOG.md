@@ -13,6 +13,15 @@ All notable changes are listed here, newest first. The format follows
   quote escaped by dbt's own macro and the blank space at both ends dropped. Only duckdb has been
   tried.
 
+- `setup.relations` and `expect.query`: a macro that runs statements itself (an upsert, a delete), or
+  that reads a relation, is tested with relations that the tool makes for the case (from `rows` or a
+  `select`) and by the rows a query returns afterwards. The tool makes them as temporary relations
+  with dbt's own `make_temp_relation` and `create_table_as`, so it has no code for any adapter, and
+  drops them after the tests (dbt's `drop_relation_if_exists`, by a `run-operation`), which matters
+  on adapters whose temporary relation is not dropped with the connection. **A real write, with
+  nothing that asks first**: the spec reference says so, and what "temporary" is on each adapter.
+  Only duckdb has been tried.
+
 ## [0.1.0] - 2026-11-25
 
 The first release.

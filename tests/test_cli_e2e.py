@@ -1,7 +1,9 @@
+import re
 import shutil
 from pathlib import Path
 from typing import Any
 
+import duckdb
 import pytest
 from click.testing import CliRunner
 from dbt.cli.main import dbtRunner
@@ -489,6 +491,270 @@ def test_a_changed_statement_is_found_by_the_text(project: Path) -> None:
 
     assert result.exit_code == 1
     assert "1 failed" in result.output
+
+
+def plain(text: str) -> str:
+    """dbt's output without the colour codes, which split a phrase such as `actual differs`."""
+    return re.sub(r"\x1b\[[0-9;]*m", "", text)
+
+
+def relation(name: str) -> dict[str, str]:
+    """The argument that hands a macro the relation that the tool made for the case."""
+    return {"type": "jinja", "value": f"relations.{name}"}
+
+
+TARGET = {"rows": [{"id": 1, "value": "a"}, {"id": 2, "value": "b"}]}
+SOURCE = {"sql": "select 2 as id, 'B' as value union all select 3, 'c'"}
+MERGED = [{"id": 1, "value": "a"}, {"id": 2, "value": "B"}, {"id": 3, "value": "c"}]
+
+
+def run_relations(project: Path, name: str, macro: str, **kw: Any) -> Any:
+    spec = write_spec(project / "macro_test", f"{name}.yml", macro, name, **kw)
+    return CliRunner().invoke(main, ["run", str(spec)])
+
+
+def test_a_macro_that_runs_a_merge_is_checked_by_the_rows_it_leaves(project: Path) -> None:
+    result = run_relations(
+        project,
+        "merges",
+        "upsert_orders",
+        setup={"target": TARGET, "source": SOURCE},
+        arguments={"target": relation("target"), "source": relation("source")},
+        query="select * from {{ relations.target }}",
+        rows=MERGED,
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "1 passed" in result.output
+
+
+def test_a_wrong_state_fails_and_the_diff_shows_the_rows(project: Path) -> None:
+    result = run_relations(
+        project,
+        "wrong_state",
+        "upsert_orders",
+        setup={"target": TARGET, "source": SOURCE},
+        arguments={"target": relation("target"), "source": relation("source")},
+        query="select * from {{ relations.target }}",
+        rows=[{"id": 1, "value": "a"}, {"id": 2, "value": "b"}],
+    )
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output
+    assert "actual differs from expected" in plain(result.output)
+    assert "+++,3 ,c" in plain(result.output)
+
+
+def test_a_statement_of_the_macro_is_run_once_and_not_once_per_render(project: Path) -> None:
+    result = run_relations(
+        project,
+        "appends_once",
+        "append_row",
+        setup={"target": {"rows": [{"id": 1, "value": "a"}]}},
+        arguments={"target": relation("target")},
+        query="select * from {{ relations.target }}",
+        rows=[{"id": 1, "value": "a"}, {"id": 9, "value": "new"}],
+    )
+
+    assert result.exit_code == 0, result.output
+
+
+def test_a_relation_may_be_made_from_another_that_was_made_before_it(project: Path) -> None:
+    result = run_relations(
+        project,
+        "copies",
+        "row_count",
+        setup={
+            "target": TARGET,
+            "copy": {"sql": "select * from {{ relations.target }} where id > 1"},
+        },
+        arguments={"table": relation("copy")},
+        rows=[{"result": 1}],
+    )
+
+    assert result.exit_code == 0, result.output
+
+
+def test_relations_without_a_query_compare_what_the_macro_returns(project: Path) -> None:
+    result = run_relations(
+        project,
+        "counts",
+        "row_count",
+        setup={"target": TARGET},
+        arguments={"table": relation("target")},
+        rows=[{"result": 2}],
+    )
+
+    assert result.exit_code == 0, result.output
+
+
+def test_a_string_with_a_quote_and_a_line_break_survives_the_rows_of_a_relation(
+    project: Path,
+) -> None:
+    result = run_relations(
+        project,
+        "quoted",
+        "row_count",
+        setup={"target": {"rows": [{"id": 1, "value": 'it\'s\n"x"'}]}},
+        arguments={"table": relation("target")},
+        query="select value as result from {{ relations.target }}",
+        rows=[{"result": 'it\'s\n"x"'}],
+    )
+
+    assert result.exit_code == 0, result.output
+
+
+def test_a_select_of_a_relation_that_fails_errors_the_case_and_shows_the_model(
+    project: Path,
+) -> None:
+    result = run_relations(
+        project,
+        "bad_select",
+        "append_row",
+        setup={"target": {"sql": "select from from"}},
+        arguments={"target": relation("target")},
+        query="select 1 as id",
+        rows=[{"id": 1}],
+    )
+
+    assert result.exit_code == 1
+    assert "1 errored" in result.output
+    assert "SQL generated for the case that errored" in result.output
+    assert "create_table_as(true" in result.output
+
+
+def test_a_case_that_gives_both_an_output_and_a_query_is_not_run(project: Path) -> None:
+    result = run_relations(
+        project,
+        "both",
+        "append_row",
+        arguments={"target": "t"},
+        output="columns",
+        query="select 1 as id",
+        rows=[{"id": 1}],
+    )
+
+    assert result.exit_code == 2
+    assert "give one or the other" in result.output
+
+
+def file_database(project: Path, tmp_path: Path) -> Path:
+    database = tmp_path / "left_behind.duckdb"
+    (project / "profiles.yml").write_text(
+        "fixture_project:\n  target: dev\n  outputs:\n    dev:\n      type: duckdb\n"
+        f'      path: "{database.as_posix()}"\n'
+    )
+    return database
+
+
+def tables_in(database: Path) -> list[str]:
+    # dbt keeps its own connection to the file in this process, so this one is opened as it was
+    connection = duckdb.connect(str(database))
+    found = connection.execute(
+        "select table_name from information_schema.tables "
+        "where table_schema not in ('information_schema', 'pg_catalog')"
+    ).fetchall()
+    connection.close()
+    return [name for (name,) in found]
+
+
+def two_cases(project: Path) -> tuple[Any, Any]:
+    passing = run_relations(
+        project,
+        "passes",
+        "upsert_orders",
+        setup={"target": TARGET, "source": SOURCE},
+        arguments={"target": relation("target"), "source": relation("source")},
+        query="select * from {{ relations.target }}",
+        rows=MERGED,
+    )
+    failing = run_relations(
+        project,
+        "fails",
+        "upsert_orders",
+        setup={"target": TARGET, "source": SOURCE},
+        arguments={"target": relation("target"), "source": relation("source")},
+        query="select * from {{ relations.target }}",
+        rows=[{"id": 1, "value": "nope"}],
+    )
+    return passing, failing
+
+
+def test_nothing_is_left_in_the_database_after_a_case_that_passes_or_one_that_fails(
+    project: Path, tmp_path: Path
+) -> None:
+    database = file_database(project, tmp_path)
+
+    passing, failing = two_cases(project)
+
+    assert passing.exit_code == 0, passing.output
+    assert failing.exit_code == 1
+    assert tables_in(database) == []
+
+
+PERSISTENT = """{% macro duckdb__create_table_as(temporary, relation, compiled_code, language='sql',
+                                      partitioned_by=none, sorted_by=none) -%}
+  create table {{ relation.include(database=false, schema=false) }} as ({{ compiled_code }})
+{%- endmacro %}
+"""
+
+
+def made_by_the_tool(database: Path) -> list[str]:
+    """The relations of the cases (`_mt_...`), apart from what dbt makes for its own unit tests."""
+    return [name for name in tables_in(database) if name.startswith("_mt_")]
+
+
+def persistent_project(project: Path, tmp_path: Path) -> Path:
+    # stands for an adapter whose "temporary" relation is a normal table (BigQuery keeps it for
+    # twelve hours, Trino for ever): the project's own create_table_as ignores `temporary`
+    (project / "macros" / "persistent.sql").write_text(PERSISTENT)
+    return file_database(project, tmp_path)
+
+
+def test_relations_that_an_adapter_does_not_make_temporary_are_dropped_after_the_run(
+    project: Path, tmp_path: Path
+) -> None:
+    database = persistent_project(project, tmp_path)
+
+    passing, failing = two_cases(project)
+
+    assert passing.exit_code == 0, passing.output
+    assert failing.exit_code == 1
+    assert made_by_the_tool(database) == []
+
+
+def test_the_simulation_of_such_an_adapter_does_leave_relations_when_nothing_drops_them(
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dbt_macro_test.engine import runner
+
+    database = persistent_project(project, tmp_path)
+    monkeypatch.setattr(runner, "drop_relations", lambda *a, **k: [])
+
+    passing, _ = two_cases(project)
+
+    assert passing.exit_code == 0, passing.output
+    assert len(made_by_the_tool(database)) >= 2
+
+
+def test_the_tool_says_which_relations_it_could_not_drop(
+    project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dbt_macro_test.engine import runner
+
+    monkeypatch.setattr(runner, "drop_relations", lambda *a, **k: ["_mt_x_0_target"])
+
+    result = run_relations(
+        project,
+        "undropped",
+        "row_count",
+        setup={"target": TARGET},
+        arguments={"table": relation("target")},
+        rows=[{"result": 2}],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "could not be dropped and may be left in the warehouse: _mt_x_0_target" in result.output
 
 
 def test_run_passes_for_macros_that_return_a_whole_query(project: Path) -> None:

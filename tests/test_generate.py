@@ -11,7 +11,7 @@ from dbt_macro_test.project import (
     project_config,
     write_project,
 )
-from dbt_macro_test.spec import Case, InlineRows, MacroSpec, Overrides, SpecFile
+from dbt_macro_test.spec import Case, InlineRows, MacroSpec, Overrides, SetupRelation, SpecFile
 
 RAW: dict[str, Any] = {
     "name": "shop",
@@ -181,3 +181,123 @@ def test_build_files_makes_local_package_paths_absolute(tmp_path: Path) -> None:
     assert yaml.safe_load(files["packages.yml"])["packages"] == [
         {"local": str((tmp_path / "../x").resolve())}
     ]
+
+
+def sql_case(**kw: Any) -> Case:
+    return Case(name="a", arguments={}, expect=InlineRows("dict", []), **kw)
+
+
+def test_a_case_without_sql_of_its_own_is_wrapped_by_its_output() -> None:
+    assert sql_case().model_sql("m(a=1)") == "select {{ m(a=1) }} as result\n"
+
+
+def test_a_case_with_relations_and_a_query_makes_them_runs_the_macro_and_ends_with_the_query() -> (
+    None
+):
+    case = sql_case(
+        setup=(
+            SetupRelation("target", rows=({"id": 1},)),
+            SetupRelation("src", sql="select 2 as id"),
+        ),
+        query="select * from {{ relations.target }}",
+    )
+
+    lines = case.model_sql("m(a=1)", "_mt_r_0_").splitlines()
+
+    assert lines[0] == "{% set relations = namespace() %}"
+    assert lines[1] == (
+        "{% set relations.target = make_temp_relation(api.Relation.create("
+        "database=target.get('database'), schema=target.schema, "
+        'identifier="_mt_r_0_target")) %}'
+    )
+    assert lines[2].startswith("{% set relations.src = make_temp_relation(")
+    assert lines[3] == "{% if execute %}"
+    assert lines[4:7] == [
+        "{% set _mt_sql %}select 1 as id{% endset %}",
+        "{% do run_query(create_table_as(true, relations.target, _mt_sql)) %}",
+        '{% do log("__mt_relation__" ~ tojson({"database": relations.target.database, '
+        '"schema": relations.target.schema, "identifier": relations.target.identifier, '
+        '"type": "table"}), info=false) %}',
+    ]
+    assert lines[7] == "{% set _mt_sql %}select 2 as id{% endset %}"
+    assert lines[-3:] == [
+        "{% do m(a=1) %}",
+        "{% endif %}",
+        "select * from {{ relations.target }}",
+    ]
+
+
+def test_a_relation_named_like_a_method_of_a_dict_is_still_the_relation() -> None:
+    sql = sql_case(setup=(SetupRelation("copy", sql="select 1"),), query="select 1").model_sql(
+        "m()"
+    )
+
+    assert "{% set relations.copy = make_temp_relation(" in sql
+    assert "relations.copy" in sql and "relations.update" not in sql
+
+
+def test_relations_without_a_query_keep_the_output_of_the_macro_as_the_result() -> None:
+    case = sql_case(setup=(SetupRelation("t", sql="select 1 as id"),))
+
+    lines = case.model_sql("m()", "_mt_r_0_").splitlines()
+
+    assert lines[-2:] == ["{% endif %}", "select {{ m() }} as result"]
+    assert "{% do m() %}" not in lines
+
+
+def test_a_query_without_relations_still_runs_the_macro_first_and_only_at_run_time() -> None:
+    assert sql_case(query="select 1 as r").model_sql("m()") == (
+        "{% if execute %}\n{% do m() %}\n{% endif %}\nselect 1 as r\n"
+    )
+
+
+def test_the_relations_are_made_only_when_the_model_is_run_not_when_it_is_parsed() -> None:
+    sql = sql_case(setup=(SetupRelation("t", sql="select 1"),), query="select 1").model_sql("m()")
+
+    before_execute = sql.split("{% if execute %}")[0]
+
+    assert "run_query" not in before_execute
+    assert "make_temp_relation" in before_execute
+
+
+def test_a_project_with_relations_gets_the_macro_that_drops_them_and_names_by_the_run() -> None:
+    case = sql_case(setup=(SetupRelation("t", sql="select 1"),), query="select * from t")
+    spec = SpecFile(Path("/p/m/s.yml"), [MacroSpec("m", [case])])
+
+    files = build_files(RAW, Path("/p"), Path("/p/m"), [spec], run_id="20261126T000000_abc123")
+
+    assert "drop_relation_if_exists" in files["macros/_mt_drop.sql"]
+    assert "adapter.commit()" in files["macros/_mt_drop.sql"]
+    assert yaml.safe_load(files["dbt_project.yml"])["macro-paths"][-1] == "macros"
+    model = next(v for k, v in files.items() if k.startswith("models/_mt_") and k.endswith(".sql"))
+    assert '"_mt_20261126T000000_abc123_0_t"' in model
+
+
+def test_a_project_without_relations_is_as_before() -> None:
+    spec = SpecFile(Path("/p/m/s.yml"), [MacroSpec("m", [sql_case()])])
+
+    files = build_files(RAW, Path("/p"), Path("/p/m"), [spec])
+
+    assert "macros/_mt_drop.sql" not in files
+    assert "macros" not in yaml.safe_load(files["dbt_project.yml"])["macro-paths"]
+
+
+def test_each_case_of_a_project_has_names_of_its_own() -> None:
+    cases = [
+        Case(
+            name=name,
+            arguments={},
+            expect=InlineRows("dict", []),
+            setup=(SetupRelation("t", sql="select 1"),),
+            query="select 1",
+        )
+        for name in ("first", "second")
+    ]
+    spec = SpecFile(Path("/p/m/s.yml"), [MacroSpec("m", cases)])
+
+    files = build_files(RAW, Path("/p"), Path("/p/m"), [spec], run_id="r")
+
+    first = next(v for k, v in files.items() if k.endswith("first.sql"))
+    second = next(v for k, v in files.items() if k.endswith("second.sql"))
+    assert '"_mt_r_0_t"' in first and '"_mt_r_1_t"' not in first
+    assert '"_mt_r_1_t"' in second and '"_mt_r_0_t"' not in second

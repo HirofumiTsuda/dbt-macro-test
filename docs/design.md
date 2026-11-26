@@ -99,6 +99,17 @@ unit_tests:
   points at them) and `dbt deps` is not run; otherwise `packages.yml` is copied, with relative
   `local:` paths made absolute, and `dbt deps` runs in the temporary directory.
 - Fixture files (`fixture: name`) are copied to `tests/fixtures/` of the generated project.
+- **A case with `setup` or `expect.query`** (`Case.model_sql`) is a model of another shape: the
+  relations are made with dbt's `make_temp_relation` and `create_table_as(true, ...)` (inside
+  `{% if execute %}`: `run_query` does nothing when dbt parses), each is logged
+  (`__mt_relation__`, then the relation as JSON), then the macro runs (`{% do call %}`) and the
+  model ends with the query. Dbt renders the model when the test runs, in the one connection it
+  gives that test, so the statements run once and a case sees only its own relations. The tool then
+  drops what was logged with a generated `run-operation` (`_mt_drop`: dbt's
+  `drop_relation_if_exists`, then `adapter.commit()`: without the commit the drop is rolled back
+  when dbt closes the connection). A relation that the adapter made temporary in the sense of a
+  connection is already gone and the drop does nothing; BigQuery and Trino keep it, and the drop is
+  what removes it. Nothing in this is specific to an adapter.
 
 ## Cases that run alone
 

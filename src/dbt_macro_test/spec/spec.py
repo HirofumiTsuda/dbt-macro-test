@@ -13,8 +13,9 @@ from dbt_macro_test.spec.expectation import (
     FixtureRef,
     InlineRows,
 )
-from dbt_macro_test.spec.literals import JinjaExpression
+from dbt_macro_test.spec.literals import JinjaExpression, to_jinja_literal
 from dbt_macro_test.spec.output import Output
+from dbt_macro_test.spec.setup import RELATION_MARK, SetupRelation, rows_to_select
 
 _TYPES = ("literal", "jinja")
 _FORMATS = ("dict", "csv", "sql")
@@ -45,6 +46,58 @@ class Case:
     output: Output = Output.EXPRESSION
     overrides: Overrides = field(default_factory=lambda: Overrides())
     warning: ExpectedWarning | None = None
+    setup: tuple[SetupRelation, ...] = ()
+    query: str | None = None
+
+    @property
+    def runs_own_sql(self) -> bool:
+        """Whether the case brings SQL of its own: relations to make, and a query that says what
+        to compare. Such a case runs against the warehouse more than a unit test does."""
+        return bool(self.setup) or self.query is not None
+
+    def model_sql(self, call: str, relation_prefix: str = "") -> str:
+        """The throwaway model of the case: what dbt compares with the expected rows.
+
+        A case without SQL of its own wraps the call by its `output`. A case with a `setup` makes
+        its relations first, as **temporary** ones, with dbt's own `make_temp_relation` and
+        `create_table_as`, which each adapter implements for itself, so nothing here is adapter
+        specific. They are made when dbt renders the model at run time (`run_query`), in the
+        connection dbt gives the test, and their names are logged so that the tool can drop them
+        afterwards (`__mt_relation__`): a temporary relation is not temporary on every adapter.
+        With a `query` the macro is then run for what it does, its text dropped, and the model is
+        the query; without one, the macro's output is the model, as before.
+        """
+        if not self.runs_own_sql:
+            return self.output.model_sql(call)
+        lines: list[str] = []
+        if self.setup:
+            # a namespace and not a dict: `relations.copy` of a dict is its method, not the relation
+            lines.append("{% set relations = namespace() %}")
+            for relation in self.setup:
+                identifier = to_jinja_literal(f"{relation_prefix}{relation.name}")
+                lines.append(
+                    f"{{% set relations.{relation.name} = make_temp_relation("
+                    f"api.Relation.create(database=target.get('database'), "
+                    f"schema=target.schema, identifier={identifier})) %}}"
+                )
+        lines.append("{% if execute %}")
+        for relation in self.setup:
+            ref = f"relations.{relation.name}"
+            lines.append(f"{{% set _mt_sql %}}{relation.select_sql()}{{% endset %}}")
+            lines.append(f"{{% do run_query(create_table_as(true, {ref}, _mt_sql)) %}}")
+            lines.append(
+                f'{{% do log("{RELATION_MARK}" ~ tojson({{'
+                f'"database": {ref}.database, "schema": {ref}.schema, '
+                f'"identifier": {ref}.identifier, "type": "table"}}), info=false) %}}'
+            )
+        if self.query is not None:
+            lines.append(f"{{% do {call} %}}")
+        lines.append("{% endif %}")
+        if self.query is None:
+            lines.append(self.output.model_sql(call).rstrip("\n"))
+        else:
+            lines.append(self.query.strip())
+        return "\n".join(lines) + "\n"
 
     @property
     def isolated(self) -> bool:
@@ -217,7 +270,9 @@ def _parse_given(value: Any, path: Path, where: str) -> dict[str, Any]:
 def _parse_expect(value: Any, path: Path, where: str) -> Expectation:
     """What a case expects: rows written in it, rows in a fixture file, or an error; one of them."""
     here = f"{where}.expect"
-    expect = _mapping(value, path, here, optional=["rows", "format", "fixture", "error", "warning"])
+    expect = _mapping(
+        value, path, here, optional=["rows", "format", "fixture", "error", "warning", "query"]
+    )
     if sum(key in expect for key in ("rows", "fixture", "error")) != 1:
         raise _fail(path, here, "needs exactly one of 'rows', 'fixture' and 'error'")
     if "error" in expect:
@@ -230,7 +285,9 @@ def _parse_expect(value: Any, path: Path, where: str) -> Expectation:
 def _parse_warning(value: Any, path: Path, where: str) -> ExpectedWarning | None:
     """The warning a case expects with its rows, if it expects one."""
     here = f"{where}.expect"
-    expect = _mapping(value, path, here, optional=["rows", "format", "fixture", "error", "warning"])
+    expect = _mapping(
+        value, path, here, optional=["rows", "format", "fixture", "error", "warning", "query"]
+    )
     if "warning" not in expect:
         return None
     if "error" in expect:
@@ -240,6 +297,56 @@ def _parse_warning(value: Any, path: Path, where: str) -> ExpectedWarning | None
     if not isinstance(message, str) or not message.strip():
         raise _fail(path, f"{here}.warning.message", "must be the text the warning contains")
     return ExpectedWarning(message)
+
+
+def _parse_query(value: Any, path: Path, where: str) -> str | None:
+    """The query a case compares after the macro has run, if it has one."""
+    here = f"{where}.expect"
+    expect = _mapping(
+        value, path, here, optional=["rows", "format", "fixture", "error", "warning", "query"]
+    )
+    if "query" not in expect:
+        return None
+    if "error" in expect:
+        raise _fail(path, here, "a case that ends in an error has no query to compare")
+    query = expect["query"]
+    if not isinstance(query, str) or not query.strip():
+        raise _fail(path, f"{here}.query", "must be the SQL of a query")
+    return query
+
+
+def _parse_setup(value: Any, path: Path, where: str) -> tuple[SetupRelation, ...]:
+    """The relations a case needs: `setup: {relations: {name: {rows: [...]} | {sql: ...}}}`."""
+    here = f"{where}.setup"
+    setup = _mapping(value, path, here, required=["relations"])
+    entries = _mapping(setup["relations"], path, f"{here}.relations", any_keys=True)
+    if not entries:
+        raise _fail(path, f"{here}.relations", "must have at least one relation")
+    relations = []
+    for name, entry in entries.items():
+        if not isinstance(name, str) or not _IDENTIFIER.match(name):
+            raise _fail(path, f"{here}.relations", f"{name!r} is not a relation name")
+        spot = f"{here}.relations.{name}"
+        body = _mapping(entry, path, spot, optional=["rows", "sql"])
+        if sum(key in body for key in ("rows", "sql")) != 1:
+            raise _fail(path, spot, "needs exactly one of 'rows' and 'sql'")
+        if "sql" in body:
+            sql = body["sql"]
+            if not isinstance(sql, str) or not sql.strip():
+                raise _fail(path, f"{spot}.sql", "must be a select, as text")
+            relations.append(SetupRelation(name, sql=sql))
+            continue
+        rows = _list(body["rows"], path, f"{spot}.rows")
+        if not rows:
+            raise _fail(path, f"{spot}.rows", "must have at least one row (use `sql` for none)")
+        for i, row in enumerate(rows):
+            _mapping(row, path, f"{spot}.rows[{i}]", any_keys=True)
+        try:
+            rows_to_select(rows)
+        except (ValueError, TypeError) as e:
+            raise _fail(path, f"{spot}.rows", str(e)) from e
+        relations.append(SetupRelation(name, rows=tuple(rows)))
+    return tuple(relations)
 
 
 def _parse_error(expect: dict[str, Any], path: Path, here: str) -> ExpectedError:
@@ -279,7 +386,11 @@ def _parse_inline_rows(expect: dict[str, Any], path: Path, here: str) -> InlineR
 def _parse_case(entry: Any, path: Path, where: str) -> Case:
     """A case is its name, what it expects, and optionally the rest, checked in that order."""
     body = _mapping(
-        entry, path, where, required=["name", "expect"], optional=["given", "output", "overrides"]
+        entry,
+        path,
+        where,
+        required=["name", "expect"],
+        optional=["given", "output", "overrides", "setup"],
     )
     name = _parse_name(body["name"], path, where)
     output = _parse_output(body.get("output", Output.EXPRESSION.label), path, where)
@@ -291,6 +402,15 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
     arguments = _parse_given(body["given"], path, where) if "given" in body else {}
     expect = _parse_expect(body["expect"], path, where)
     warning = _parse_warning(body["expect"], path, where)
+    query = _parse_query(body["expect"], path, where)
+    if query is not None and "output" in body:
+        raise _fail(
+            path,
+            f"{where}.output",
+            "is for a macro whose text is the result; with expect.query the macro is run for "
+            "what it does and the query is what is compared, so give one or the other",
+        )
+    setup = _parse_setup(body["setup"], path, where) if "setup" in body else ()
     return Case(
         name=name,
         arguments=arguments,
@@ -298,4 +418,6 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         output=output,
         overrides=overrides,
         warning=warning,
+        setup=setup,
+        query=query,
     )
