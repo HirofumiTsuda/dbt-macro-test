@@ -1,0 +1,9 @@
+/* A black theme in the colours of the terminal in the demo and of the social preview image. */
+:root[data-theme='dark'] {
+  --sl-color-black: #0d1117;
+  --sl-color-gray-6: #161b22;
+  --sl-color-gray-5: #21262d;
+  --sl-color-accent-low: #12263f;
+  --sl-color-accent: #1f6feb;
+  --sl-color-accent-high: #79c0ff;
+}

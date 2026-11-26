@@ -32,6 +32,7 @@ trademark of dbt Labs, Inc.
 
 ## Quick start
 
+<!-- --8<-- [start:quickstart] -->
 **1. Install.** The tool runs dbt **in the same process**, so the adapter of your project has to be
 installed in the same environment, with dbt-core (1.8 or later; the tool brings it):
 
@@ -99,6 +100,7 @@ actual differs from expected:
 
 Both outputs are trimmed (dbt's start-up lines and the timestamps are left out). They are from
 running exactly this, in a new project with a duckdb profile and the tool installed as above.
+<!-- --8<-- [end:quickstart] -->
 
 **Next:** [what to write for your macro](#what-to-write-for-your-macro): an error, a warning, text, a `ref`, a macro that writes.
 
@@ -293,9 +295,16 @@ failure without the workers, use `uv run pytest -n 0 path/to/test.py::test_name`
 suite on Python 3.11 to 3.14, on dbt-core 1.8, and on Windows; dbt-core 1.9, 1.10 and 1.11 were
 each run once by hand.
 
+The documentation site is [Starlight](https://starlight.astro.build/) in `website/`, over the
+Markdown of `docs/`, the README and the changelog, which stay plain Markdown that reads on GitHub:
+`website/prepare.py` writes the pages from them before each build. It is the one part that needs
+Node (22.23.4 or later; `website/.node-version`); the rest does not. To see it while you edit,
+`cd website && npm ci && npm run dev`. CI builds it (`npm run build`), where a broken link or a
+heading that is not there fails, and publishes it when `main` changes.
+
 The dependencies in `uv.lock` and the pinned actions of the workflows are kept up to date by
-Dependabot (`.github/dependabot.yml`): once a week, one pull request for the actions and one for
-the dependencies, which run CI and are merged like any other.
+Dependabot (`.github/dependabot.yml`): once a week, one pull request each for the actions, the
+Python dependencies and the site's, which run CI and are merged like any other.
 
 ## License
 
