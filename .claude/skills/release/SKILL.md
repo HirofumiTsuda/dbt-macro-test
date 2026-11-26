@@ -104,7 +104,7 @@ of the README).
 5. Install it into a new environment and run the fixture project:
    `pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/
    dbt-macro-test==X.Y.Z.devN` (and `dbt-duckdb` from PyPI), `dbt-macro-test --help`, and
-   `dbt-macro-test run` on a copy of `tests/fixtures/project` (27 cases passed).
+   `dbt-macro-test run` on a copy of `tests/fixtures/project` (27 passed, 1 skipped).
 
 ## The release
 

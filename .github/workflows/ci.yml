@@ -115,7 +115,8 @@ jobs:
         run: uv run pytest
 
   postgres:
-    # The sample project against a real Postgres (#116): the first adapter other than duckdb. It is not
+    # The sample project and the project of the tests against a real Postgres (#116): the first adapter
+    # other than duckdb. It is not
     # a required check of main until it has been seen to be stable.
     name: sample (Postgres)
     needs: changes
@@ -150,6 +151,10 @@ jobs:
       # the container above
       - if: needs.changes.outputs.code != 'false'
         run: uv run dbt-macro-test run --project-dir dev/sample_project --profiles-dir dev/sample_project/postgres
+
+      # the project of the tests, which has more of the tool's features than the sample has
+      - if: needs.changes.outputs.code != 'false'
+        run: uv run dbt-macro-test run --project-dir tests/fixtures/project --profiles-dir tests/fixtures/postgres
 
   docs:
     # The documentation site must build, with a broken link or a missing heading as an error. It

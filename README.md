@@ -29,7 +29,8 @@ the macro you have, and every key of a spec.
 - **Made for CI.** Exit code 0, 1 or 2, `--select`, Linux and Windows, dbt-core 1.8 and later, and
   an example for GitHub Actions below.
 
-**Status: alpha.** The interface may still change. It has been run on duckdb and on Postgres (the sample project, in CI) and on no other adapter (see
+**Status: alpha.** The interface may still change. It has been run on duckdb and on Postgres (the
+sample project and the project of the tests, in CI) and on no other adapter (see
 [What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
 
 This project is independent and is not affiliated with or endorsed by dbt Labs. "dbt" is a
