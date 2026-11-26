@@ -2,6 +2,7 @@ import re
 import secrets
 import shutil
 import time
+from importlib import resources
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
@@ -22,18 +23,12 @@ class UnitTest(TypedDict):
     expect: UnitTestExpect
 
 
-# The macro that drops the relations the cases made, run by the tool after the tests with the names
-# the models logged. drop_relation_if_exists is dbt's, dispatched by adapter; the commit is needed
-# because the drop is otherwise rolled back when dbt closes the connection.
-CLEANUP_MACRO = """{% macro _mt_drop(relations) %}
-  {% for r in relations %}
-    {% do drop_relation_if_exists(api.Relation.create(
-        database=r['database'], schema=r['schema'], identifier=r['identifier'], type=r['type'])) %}
-  {% endfor %}
-  {% do adapter.commit() %}
-{% endmacro %}
-"""
 CLEANUP_PATH = "macros/_mt_drop.sql"
+
+
+def cleanup_macro() -> str:
+    """The macro that drops the relations the cases made, which is a file of the package."""
+    return resources.files("dbt_macro_test.project").joinpath(CLEANUP_PATH).read_text()
 
 
 def new_run_id() -> str:
@@ -115,7 +110,7 @@ def build_files(
         )
     }
     if has_relations:
-        files[CLEANUP_PATH] = CLEANUP_MACRO
+        files[CLEANUP_PATH] = cleanup_macro()
     for fixture in fixtures.values():
         files[f"tests/fixtures/{fixture.file_name}"] = fixture.text
     if packages_yml is not None:

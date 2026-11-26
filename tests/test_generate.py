@@ -1,3 +1,4 @@
+from importlib import resources
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ from dbt_macro_test.project import (
     project_config,
     write_project,
 )
+from dbt_macro_test.project.generate import CLEANUP_PATH, cleanup_macro
 from dbt_macro_test.spec import Case, InlineRows, MacroSpec, Overrides, SetupRelation, SpecFile
 
 RAW: dict[str, Any] = {
@@ -271,6 +273,16 @@ def test_a_project_with_relations_gets_the_macro_that_drops_them_and_names_by_th
     assert yaml.safe_load(files["dbt_project.yml"])["macro-paths"][-1] == "macros"
     model = next(v for k, v in files.items() if k.startswith("models/_mt_") and k.endswith(".sql"))
     assert '"_mt_20261126T000000_abc123_0_t"' in model
+
+
+def test_the_macro_that_drops_the_relations_is_a_file_of_the_package() -> None:
+    packaged = resources.files("dbt_macro_test.project").joinpath("macros/_mt_drop.sql")
+
+    text = packaged.read_text()
+
+    assert cleanup_macro() == text
+    assert "{% macro _mt_drop(relations) %}" in text
+    assert CLEANUP_PATH == "macros/_mt_drop.sql"
 
 
 def test_a_project_without_relations_is_as_before() -> None:
