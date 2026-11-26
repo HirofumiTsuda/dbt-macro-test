@@ -1,3 +1,4 @@
+import json
 import os
 import re
 from collections.abc import Callable
@@ -6,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from dbt.cli.main import dbtRunner, dbtRunnerResult
+
+from dbt_macro_test.spec import RELATION_MARK
 
 _ANSI = re.compile(r"\x1b\[[0-9;]*m")
 
@@ -23,6 +26,7 @@ class RunOutcome:
     passed: bool
     errored_models: list[str] = field(default_factory=list)
     counts: dict[str, int] = field(default_factory=dict)
+    left_behind: list[str] = field(default_factory=list)
 
     def summary(self) -> str:
         """For example `1 failed, 8 passed`; failures first."""
@@ -46,13 +50,16 @@ class RawRun:
 
     `exception` is set when dbt stopped altogether, before or while running the cases (an error
     raised while the project is parsed, for instance); it is the text of the error. `warnings` are
-    the warnings dbt gave, each once and in the order they came.
+    the warnings dbt gave, each once and in the order they came. `relations` are the relations the
+    cases made (their database, schema, identifier and type), which the models logged as they made
+    them, so that they can be dropped.
     """
 
     success: bool
     exception: str | None
     results: list[CaseResult]
     warnings: list[str] = field(default_factory=list)
+    relations: list[dict[str, Any]] = field(default_factory=list)
 
 
 def invoke_dbt(
@@ -106,10 +113,16 @@ def invoke_unit_tests(
     if quiet:
         args += ["--log-level", "none"]
     warnings: list[str] = []
+    relations: list[dict[str, Any]] = []
 
     def collect(event: Any) -> None:
-        if event.info.level == "warn":
-            text = _ANSI.sub("", event.info.msg).removeprefix("[WARNING]: ").strip()
+        text = _ANSI.sub("", event.info.msg)
+        if RELATION_MARK in text:
+            relation = json.loads(text.split(RELATION_MARK, 1)[1])
+            if relation not in relations:
+                relations.append(relation)
+        elif event.info.level == "warn":
+            text = text.removeprefix("[WARNING]: ").strip()
             if text not in warnings:
                 warnings.append(text)
 
@@ -120,7 +133,47 @@ def invoke_unit_tests(
         model = getattr(item.node, "model", None)
         results.append(CaseResult(str(model), status, str(item.message or "")))
     exception = None if result.exception is None else str(result.exception)
-    return RawRun(success=result.success, exception=exception, results=results, warnings=warnings)
+    return RawRun(
+        success=result.success,
+        exception=exception,
+        results=results,
+        warnings=warnings,
+        relations=relations,
+    )
+
+
+def drop_relations(
+    project_dir: Path,
+    relations: list[dict[str, Any]],
+    *,
+    profiles_dir: Path | None = None,
+    target: str | None = None,
+) -> list[str]:
+    """Drop the relations that the cases made, by dbt's own `drop_relation_if_exists`, and return
+    the names of those that could not be dropped (all of them, when dbt could not run).
+
+    A temporary relation is gone with its connection on most adapters and stays on some (a table
+    that expires, a normal table, ...), and the tool does not tell which: it drops what the models
+    logged, which is a no-op for a relation that is already gone. Nothing here is specific to an
+    adapter; the macro that drops (`_mt_drop`) is written into the generated project.
+    """
+    if not relations:
+        return []
+    arguments = json.dumps({"relations": relations})
+    result = invoke_dbt(
+        [
+            "--log-level",
+            "none",
+            "run-operation",
+            "_mt_drop",
+            "--args",
+            arguments,
+            *_common_args(project_dir, profiles_dir, target),
+        ]
+    )
+    if result.success and result.exception is None:
+        return []
+    return [str(r.get("identifier")) for r in relations]
 
 
 def run_unit_tests(
@@ -146,4 +199,5 @@ def run_unit_tests(
     for case in raw.results:
         counts[case.status] = counts.get(case.status, 0) + 1
     errored = [case.model for case in raw.results if case.status == "error"]
-    return RunOutcome(passed=raw.success, errored_models=errored, counts=counts)
+    left = drop_relations(project_dir, raw.relations, profiles_dir=profiles_dir, target=target)
+    return RunOutcome(passed=raw.success, errored_models=errored, counts=counts, left_behind=left)

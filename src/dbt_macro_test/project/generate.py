@@ -1,5 +1,8 @@
 import re
+import secrets
 import shutil
+import time
+from importlib import resources
 from pathlib import Path
 from typing import Any, NotRequired, TypedDict
 
@@ -20,6 +23,20 @@ class UnitTest(TypedDict):
     expect: UnitTestExpect
 
 
+CLEANUP_PATH = "macros/_mt_drop.sql"
+
+
+def cleanup_macro() -> str:
+    """The macro that drops the relations the cases made, which is a file of the package."""
+    return resources.files("dbt_macro_test.project").joinpath(CLEANUP_PATH).read_text()
+
+
+def new_run_id() -> str:
+    """What tells the relations of one generated project from another's: a UTC timestamp, and a
+    little chance, so that two runs in the same second and the same schema do not meet."""
+    return time.strftime("%Y%m%dT%H%M%S", time.gmtime()) + "_" + secrets.token_hex(3)
+
+
 def macro_directories(raw: dict[str, Any], root: Path) -> list[Path]:
     """The real project's macro directories, as absolute paths."""
     return [(root / p).resolve() for p in raw.get("macro-paths", ["macros"])]
@@ -30,6 +47,7 @@ def project_config(
     root: Path,
     packages_dir: Path | None = None,
     has_fixtures: bool = False,
+    has_relations: bool = False,
 ) -> dict[str, Any]:
     """The generated project's dbt_project.yml, derived from the real project's.
 
@@ -42,6 +60,8 @@ def project_config(
     config = dict(raw)
     config["model-paths"] = ["models"]
     config["macro-paths"] = [str(p) for p in macro_directories(raw, root)]
+    if has_relations:
+        config["macro-paths"].append("macros")  # the generated project's own: _mt_drop
     for key in ("seed-paths", "snapshot-paths", "analysis-paths"):
         config[key] = []
     config["test-paths"] = ["tests"] if has_fixtures else []
@@ -72,21 +92,32 @@ def build_files(
     packages_yml: str | None = None,
     packages_dir: Path | None = None,
     fixtures: dict[str, Fixture] | None = None,
+    run_id: str = "run",
 ) -> dict[str, str]:
-    """The generated project, as relative path -> file content."""
+    """The generated project, as relative path -> file content.
+
+    `run_id` is in the name of every relation that a case makes (`_mt_<run_id>_<n>_<name>`).
+    """
     fixtures = fixtures or {}
     fixture_formats = {name: fixture.format for name, fixture in fixtures.items()}
+    has_relations = any(
+        case.setup for spec_file in spec_files for m in spec_file.macros for case in m.cases
+    )
     files: dict[str, str] = {
         "dbt_project.yml": yaml.safe_dump(
-            project_config(raw_config, root, packages_dir, bool(fixtures)), sort_keys=False
+            project_config(raw_config, root, packages_dir, bool(fixtures), has_relations),
+            sort_keys=False,
         )
     }
+    if has_relations:
+        files[CLEANUP_PATH] = cleanup_macro()
     for fixture in fixtures.values():
         files[f"tests/fixtures/{fixture.file_name}"] = fixture.text
     if packages_yml is not None:
         files["packages.yml"] = with_absolute_local_paths(packages_yml, root)
 
     unit_tests: list[UnitTest] = []
+    case_number = 0
     for spec_file in spec_files:
         for macro_spec in spec_file.macros:
             for case in macro_spec.cases:
@@ -95,7 +126,8 @@ def build_files(
                 path = f"models/{name}.sql"
                 if path in files:
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
-                files[path] = case.output.model_sql(call)
+                files[path] = case.model_sql(call, f"_mt_{run_id}_{case_number}_")
+                case_number += 1
                 unit_test = UnitTest(
                     name=case.name,
                     model=name,
@@ -161,6 +193,7 @@ def generate_project(
         packages.read_text() if packages.is_file() else None,
         packages_dir,
         find_fixtures(spec_files, test_dir),
+        new_run_id(),
     )
     write_project(files, out_dir)
     return out_dir

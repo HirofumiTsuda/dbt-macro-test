@@ -18,6 +18,8 @@ def write_spec(
     arguments: dict[str, Any] | None = None,
     output: str | None = None,
     overrides: dict[str, Any] | None = None,
+    setup: dict[str, Any] | None = None,
+    query: str | None = None,
 ) -> Path:
     """Write a spec file with one macro and one case, from the parts of the case."""
     body: dict[str, Any] = {"name": case}
@@ -27,6 +29,8 @@ def write_spec(
         body["output"] = output
     if overrides is not None:
         body["overrides"] = overrides
+    if setup is not None:
+        body["setup"] = {"relations": setup}
     expect: dict[str, Any] = {}
     if expect_format is not None:
         expect["format"] = expect_format
@@ -38,6 +42,8 @@ def write_spec(
         expect["error"] = {"message": error}
     if warning is not None:
         expect["warning"] = {"message": warning}
+    if query is not None:
+        expect["query"] = query
     body["expect"] = expect
 
     spec = {"macros": [{"macro": macro, "cases": [body]}]}

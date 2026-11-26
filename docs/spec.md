@@ -15,11 +15,13 @@ macros:                       # required: a list
             denominator: 4
         output: expression    # optional: expression (default), columns, query or text
         overrides: {}         # optional: macros, vars and env_vars; see "Overrides"
+        setup: {}             # optional: relations made for the case; see "A macro that writes"
         expect:               # required: exactly one of rows, fixture and error
           rows:
             - {result: 2.5}
           warning:            # optional, with rows or fixture: see "Expecting a warning"
             message: some text
+          query: select 1     # optional: what to compare after the macro has run (see "A macro that writes")
 ```
 
 An unknown key is an error that names the key and says where it is (for example
@@ -185,6 +187,82 @@ a unit test gives to `ref()` and `source()`, which are not supported yet.
 Arguments are passed to the macro as values, so a macro that writes
 `{{ b }}` into SQL writes the value as it is: `x` is a column called `x`, and
 `"'x'"` is the string `'x'`.
+
+## A macro that writes
+
+A macro that **runs** statements itself (a `run_query("merge ...")`, an upsert, a delete), or that
+**reads** a relation, is tested with relations that the tool makes for the case, and by the rows it
+leaves behind.
+
+```yaml
+      - name: updates_changed_and_inserts_new_rows     # upsert_orders(target, source) runs a merge
+        setup:
+          relations:
+            target:
+              rows:
+                - {id: 1, value: a}
+                - {id: 2, value: b}
+            source:
+              sql: select 2 as id, 'B' as value union all select 3, 'c'
+        given:
+          arguments:
+            target: {type: jinja, value: relations.target}
+            source: {type: jinja, value: relations.source}
+        expect:
+          query: select * from {{ relations.target }}
+          rows:
+            - {id: 1, value: a}
+            - {id: 2, value: B}
+            - {id: 3, value: c}
+```
+
+- **`setup.relations.<name>`** is a relation made before the macro runs. It is filled by `rows`
+  (a list of mappings with the same columns in each, of numbers, booleans, null and strings; the
+  warehouse chooses the types) or by `sql`, a select of your own, which may name the relations made
+  before it, `{{ relations.<name> }}`. Several relations can be made, in the order written.
+- **The tool makes them, as temporary relations**, with dbt's own `make_temp_relation` and
+  `create_table_as(temporary, ...)`, which every adapter implements for itself: the tool has no code
+  for any adapter, and the statements it runs are only those, with no DDL of yours. A relation is
+  handed to the macro as an argument, `{type: jinja, value: relations.<name>}`: it is dbt's
+  `Relation`, which writes itself the way the adapter wants (written into SQL it is the name).
+  The names are `_mt_<UTC timestamp>_<id>_<n>_<name>`, then what the adapter adds.
+- **`expect.query`** is a query, whose text is rendered as Jinja so that it can name
+  `{{ relations.<name> }}`, and whose result `rows` (or `fixture`) is compared with. The macro is
+  run for what it does and its own text is dropped. Without `expect.query` the macro's output is
+  compared as it is without a setup (`output` says how), which is how to test a macro that reads the
+  relations. `output` and `expect.query` are alternatives, and giving both is an error.
+- **How it works.** The model of the case makes the relations when dbt renders it at run time (not
+  when it parses), then runs the macro, and ends with the query. Dbt gives the test one connection,
+  so the statements run once (a macro that inserts a row inserts it once), and the cases do not
+  see each other's relations.
+- **They are dropped at the end.** Each model logs the relations it makes, the tool collects them,
+  and after the tests it runs one `dbt run-operation`, written into the generated project, that
+  calls dbt's `drop_relation_if_exists` for each and commits. Whether the case passed or failed does
+  not matter. It is needed on some adapters and is a no-op on the others (see below). If it fails, the
+  tool lists the relations that may be left in the warehouse.
+
+> **It is a real write, and nothing asks first.** `dbt-macro-test run` makes the relations of every
+> spec it is given, against the warehouse of its target. The tool makes only temporary relations
+> and drops them, but **a macro that names a relation itself, instead of taking it as an argument,
+> writes that relation**, and the tool cannot tell. Run these specs on a local or throwaway target
+> (a duckdb target for CI, for instance), and keep them out of a run on a real warehouse with a path
+> or `--select`. Choosing which cases may run, by tag or by adapter, is #88.
+
+**What "temporary" is depends on the adapter**, and that is dbt's and the adapter's to say, not this
+tool's. Read in the code of each adapter's current release (only duckdb was run):
+
+| Adapter | A temporary relation is | Kept for | A macro that writes to it |
+|---|---|---|---|
+| dbt's default, Postgres, Redshift, Snowflake, DuckDB | a temporary table | the connection | works |
+| Databricks, Spark | a temporary **view** | the session | **cannot**: a view is not written |
+| BigQuery | a real table, with an expiry of 12 hours | until dropped | works; the tool drops it |
+| Trino | a normal table | for ever | works; the tool drops it |
+
+Not tried: any adapter other than duckdb (the table is the code, not a run); a macro that uses
+`statement` blocks or `adapter.*` instead of `run_query`; a run that is killed before the drop (the
+names say when the relations were made, so a leftover can be found and removed by hand). A macro that
+reads the `config`, `this` or `is_incremental()` of the model it runs in sees the generated model's,
+as for `output: text`.
 
 ## Overrides
 

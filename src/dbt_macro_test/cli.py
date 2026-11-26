@@ -14,6 +14,7 @@ from dbt_macro_test.engine import (
     RunOutcome,
     Verdict,
     check_arguments,
+    drop_relations,
     invoke_unit_tests,
     judge_error,
     judge_warning,
@@ -148,6 +149,7 @@ def run(
         if together:
             _generate(root, test_dir, together, raw_config, project, packages_dir)
             outcome = _run_dbt(project, profiles, target, install)
+            _warn_left_behind(outcome.left_behind)
             _report_errors(outcome, project)
         verdicts = [
             _run_alone(
@@ -225,6 +227,16 @@ def _run_dbt(
         raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
 
 
+def _warn_left_behind(names: list[str]) -> None:
+    """The relations that cases made and that could not be dropped: they may be in the warehouse."""
+    if names:
+        click.echo(
+            "\nThese relations made by the cases could not be dropped and may be left in the "
+            f"warehouse: {', '.join(names)}",
+            err=True,
+        )
+
+
 def _report_errors(outcome: RunOutcome, project: Path) -> None:
     """The SQL generated for each case that errored without being expected to."""
     for model in outcome.errored_models:
@@ -258,6 +270,9 @@ def _run_alone(
         if install_packages:
             run_deps(project, profiles_dir=profiles.directory, target=target)
         raw = invoke_unit_tests(project, profiles_dir=profiles.directory, target=target, quiet=True)
+        _warn_left_behind(
+            drop_relations(project, raw.relations, profiles_dir=profiles.directory, target=target)
+        )
     except DbtError as e:
         raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
     return case_id(macro_spec.macro, case.name), _judge(case, raw)
