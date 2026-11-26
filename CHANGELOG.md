@@ -6,6 +6,13 @@ All notable changes are listed here, newest first. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `adapters` on a case: `adapters: [duckdb]` limits a case to some adapters (the `type` of the target
+  the run uses). On another it is skipped and said so (`SKIP ...`, and `N skipped` in the summary),
+  which is not a failure. For a macro whose result depends on the database, such as `10 / 4`, which
+  is `2.5` on duckdb and `2` on Postgres. Part of #88 (tags are not done).
+
 ### Fixed
 
 - On Postgres, the drop of the relations that a case made failed (`Tried to commit transaction ...,

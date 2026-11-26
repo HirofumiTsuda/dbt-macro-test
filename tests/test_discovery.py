@@ -8,6 +8,7 @@ from dbt_macro_test.project import (
     find_project_root,
     resolve_profiles_dir,
     resolve_project_root,
+    target_adapter,
 )
 
 
@@ -83,3 +84,57 @@ def test_otherwise_dbts_own_default_is_left_to_dbt(tmp_path: Path) -> None:
     assert resolve_profiles_dir(None, tmp_path, {"DBT_PROFILES_DIR": ""}) == ProfilesChoice(
         None, "dbt's default location"
     )
+
+
+def write_profiles(directory: Path, text: str) -> None:
+    (directory / "profiles.yml").write_text(text)
+
+
+PROFILES = """
+shop:
+  target: dev
+  outputs:
+    dev: {type: duckdb, path: ":memory:"}
+    ci: {type: Postgres, host: localhost}
+"""
+
+
+def test_the_adapter_is_the_type_of_the_default_target(tmp_path: Path) -> None:
+    write_profiles(tmp_path, PROFILES)
+
+    assert target_adapter(tmp_path, {}, "shop", None) == "duckdb"
+
+
+def test_the_target_asked_for_wins_and_the_type_is_lower_cased(tmp_path: Path) -> None:
+    write_profiles(tmp_path, PROFILES)
+
+    assert target_adapter(tmp_path, {}, "shop", "ci") == "postgres"
+
+
+def test_without_a_directory_the_environment_variable_is_used(tmp_path: Path) -> None:
+    write_profiles(tmp_path, PROFILES)
+
+    assert target_adapter(None, {"DBT_PROFILES_DIR": str(tmp_path)}, "shop", "ci") == "postgres"
+
+
+@pytest.mark.parametrize(
+    "profile, target",
+    [("other", None), ("shop", "no_such_target")],
+)
+def test_the_adapter_is_not_told_for_a_profile_or_target_that_is_not_there(
+    tmp_path: Path, profile: str, target: str | None
+) -> None:
+    write_profiles(tmp_path, PROFILES)
+
+    assert target_adapter(tmp_path, {}, profile, target) is None
+
+
+def test_the_adapter_is_not_told_without_a_file_or_with_jinja_in_it(tmp_path: Path) -> None:
+    assert target_adapter(tmp_path, {}, "shop", None) is None  # no profiles.yml
+    write_profiles(
+        tmp_path,
+        "shop:\n  target: dev\n  outputs:\n    dev: {type: \"{{ env_var('ADAPTER') }}\"}\n",
+    )
+    assert target_adapter(tmp_path, {}, "shop", None) is None
+    write_profiles(tmp_path, "shop: [this, is, not, a, mapping")
+    assert target_adapter(tmp_path, {}, "shop", None) is None

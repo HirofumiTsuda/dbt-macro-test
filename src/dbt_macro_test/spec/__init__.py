@@ -11,7 +11,13 @@ from dbt_macro_test.spec.expectation import (
 from dbt_macro_test.spec.inputs import GivenInput
 from dbt_macro_test.spec.literals import JinjaExpression, to_jinja_literal
 from dbt_macro_test.spec.output import Output
-from dbt_macro_test.spec.select import case_id, case_ids, select_cases, split_isolated
+from dbt_macro_test.spec.select import (
+    case_id,
+    case_ids,
+    for_adapter,
+    select_cases,
+    split_isolated,
+)
 from dbt_macro_test.spec.setup import RELATION_MARK, SetupRelation
 from dbt_macro_test.spec.spec import (
     Case,
@@ -46,6 +52,7 @@ __all__ = [
     "case_id",
     "case_ids",
     "find_spec_files",
+    "for_adapter",
     "load_spec_file",
     "load_specs",
     "select_cases",

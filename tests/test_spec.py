@@ -551,3 +551,36 @@ def test_invalid_run_is_reported(tmp_path: Path, extra: str, expect: str, messag
         load_spec_file(write(tmp_path, run_case(extra, expect)))
 
     assert message in str(error.value)
+
+
+def adapters_case(adapters: str) -> str:
+    return (
+        "macros:\n  - macro: m\n    cases:\n      - name: a\n"
+        f"        adapters: {adapters}\n        expect: {{rows: [{{r: 1}}]}}\n"
+    )
+
+
+def test_a_case_is_for_every_adapter_unless_it_names_some(tmp_path: Path) -> None:
+    (plain,) = load_spec_file(write(tmp_path, case_with("{rows: [{r: 1}]}"))).macros[0].cases
+    (named,) = (
+        load_spec_file(write(tmp_path, adapters_case("[DuckDB, postgres, duckdb]"))).macros[0].cases
+    )
+
+    assert plain.adapters == ()
+    assert named.adapters == ("duckdb", "postgres")  # lower case, once each, in order
+
+
+@pytest.mark.parametrize(
+    ("adapters", "message"),
+    [
+        ("[]", "must name at least one adapter"),
+        ("duckdb", "must be a list"),
+        ("[1]", "is not the name of an adapter"),
+        ('["bad name"]', "is not the name of an adapter"),
+    ],
+)
+def test_invalid_adapters_are_reported(tmp_path: Path, adapters: str, message: str) -> None:
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, adapters_case(adapters)))
+
+    assert message in str(error.value)

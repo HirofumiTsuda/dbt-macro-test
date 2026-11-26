@@ -17,6 +17,7 @@ which runs in CI, so they work. [The spec reference](spec.md) lists every key.
 | reads a model or a source (`ref`, `source`) | `given.inputs` | [ref and source](#a-macro-that-reads-a-model-or-a-source) |
 | writes (insert, merge, delete) | `setup`, `expect.query` | [A macro that writes](#a-macro-that-writes) |
 | returns the text of a statement | `run: execute` | [A statement](#a-macro-that-returns-a-statement) |
+| gives something else on another database | `adapters` | [One database](#a-case-for-one-database) |
 
 Every case has a `name`, what it is `given`, and what it should `expect`. All cases of a macro go
 under it, and a spec file is a list of macros under `macros:`. Run them with `dbt-macro-test run`.
@@ -269,6 +270,35 @@ A macro such as `dbt.get_merge_sql` runs nothing: it returns the text of a state
 the statement **does**, add `run: execute`: the tool runs what the macro returns, and `expect.query`
 shows the rows afterwards (see the example in
 [the spec reference](spec.md#a-macro-that-returns-a-statement)).
+
+## A case for one database
+
+The same macro can give a different value on another database: `10 / 4` is `2.5` on duckdb and `2` on
+Postgres, which divides two integers as integers. Say which database a case is for with `adapters`;
+on another it is skipped, and the run says so.
+
+```yaml
+  - macro: safe_divide
+    cases:
+      - name: integer_division_gives_a_fraction
+        adapters: [duckdb]
+        given:
+          arguments: {numerator: 10, denominator: 4}
+        expect:
+          rows:
+            - {result: 2.5}
+
+      - name: integer_division_drops_the_fraction
+        adapters: [postgres]
+        given:
+          arguments: {numerator: 10, denominator: 4}
+        expect:
+          rows:
+            - {result: 2}
+```
+
+The database is the one of the target you run against (`--target`). See
+[A case for some adapters](spec.md#a-case-for-some-adapters).
 
 ## Running some of the cases, and in CI
 
