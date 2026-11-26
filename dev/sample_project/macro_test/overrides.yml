@@ -1,0 +1,46 @@
+# What a macro reads from its surroundings can be set for one case: a var, an environment
+# variable, or another macro (here the tax rate, which the price is built on).
+macros:
+  - macro: greeting
+    cases:
+      - name: with_the_vars_and_the_environment_of_the_project
+        given:
+          arguments:
+            name: Aki
+        expect:
+          rows:
+            - {result: "Hello, Aki! (JP, main shop)"}
+
+      - name: with_a_var_and_an_environment_variable_of_its_own
+        given:
+          arguments:
+            name: Aki
+        overrides:
+          vars:
+            country: US
+          env_vars:
+            SHOP_NAME: web shop
+        expect:
+          rows:
+            - {result: "Hello, Aki! (US, web shop)"}
+
+  - macro: price_with_tax
+    cases:
+      - name: with_the_rate_of_the_project
+        given:
+          arguments:
+            amount: 100
+        expect:
+          rows:
+            - {result: 110.00}
+
+      - name: with_another_rate_given_by_a_macro_override
+        given:
+          arguments:
+            amount: 100
+        overrides:
+          macros:
+            tax_rate: 0.5
+        expect:
+          rows:
+            - {result: 150.00}

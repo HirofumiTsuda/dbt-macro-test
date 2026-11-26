@@ -1,0 +1,33 @@
+# The expected rows can be written four ways: as mappings (the default), as csv, as the select
+# that gives them, or in a file next to the specs, under fixtures/. The same query, four ways.
+macros:
+  - macro: all_orders
+    cases:
+      - name: expected_as_csv
+        given:
+          arguments: &orders
+            first: "(select 1 as id, 'open' as status union all select 2, 'shipped')"
+            second: "(select 2 as id, 'shipped' as status union all select 3, 'open')"
+        output: query
+        expect:
+          format: csv                  # the first line names the columns
+          rows: |
+            id,status
+            1,open
+            2,shipped
+            3,open
+
+      - name: expected_as_sql
+        given:
+          arguments: *orders
+        output: query
+        expect:
+          format: sql                  # the rows are what this select returns
+          rows: "select 1 as id, 'open' as status union all select 2, 'shipped' union all select 3, 'open'"
+
+      - name: expected_in_a_fixture_file
+        given:
+          arguments: *orders
+        output: query
+        expect:
+          fixture: all_orders          # macro_test/fixtures/all_orders.csv (or .sql)

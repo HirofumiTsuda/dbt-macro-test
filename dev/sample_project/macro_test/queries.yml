@@ -1,0 +1,16 @@
+# A macro that gives a whole select: `output: query`. Any number of rows and columns, in any order.
+# The relations are handed in as subqueries, since an argument is written into the SQL as it is.
+macros:
+  - macro: all_orders
+    cases:
+      - name: gives_each_order_once
+        given:
+          arguments:
+            first: "(select 1 as id, 'open' as status union all select 2, 'shipped')"
+            second: "(select 2 as id, 'shipped' as status union all select 3, 'open')"
+        output: query
+        expect:
+          rows:
+            - {id: 1, status: open}
+            - {id: 2, status: shipped}
+            - {id: 3, status: open}

@@ -1,0 +1,7 @@
+# duckdb in memory: nothing to set up, nothing left behind
+shop:
+  target: dev
+  outputs:
+    dev:
+      type: duckdb
+      path: ":memory:"

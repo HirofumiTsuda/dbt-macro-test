@@ -22,7 +22,8 @@ macros:                       # required: a list
             message: some text
 ```
 
-An unknown key is an error that names the key and says where it is (for example
+A whole project of specs, one file for each thing below, is
+[`dev/sample_project`](../dev/sample_project). An unknown key is an error that names the key and says where it is (for example
 `macros[0].cases[0]: unknown key(s): bogus`); so is a wrong type. Only `overrides` lists the names
 that are accepted. The exit code is 2, and nothing is run.
 
