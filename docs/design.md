@@ -154,6 +154,11 @@ that contains the text (`judge_error`); one that expects a warning also has to h
 - **Exit codes** say what happened: 0 every case passed, 1 a case failed or errored, 2 the tests
   could not be run (an invalid spec, a wrong argument, no project, dbt itself failing, nothing
   selected). A CI job can tell a broken macro from a broken setup.
+- **An error where dbt parses the project** stops dbt before any case runs. When its text names
+  one model of the run (dbt says `Model '...' (models/<name>.sql)` or `Compilation Error in model
+  <name>`), that case is reported as errored, with dbt's message and the SQL generated for it, and
+  the others run again without it (`_blame`, in `cli.py`); one more dbt run for each such case.
+  When it names none (a syntax error in a macro file), the run could not be run: exit code 2.
 - **dbt 1.8 moves into the project directory and does not go back**, and the directory of a
   generated project is deleted afterwards, so every dbt command goes through `invoke_dbt`
   (`engine/runner.py`), which puts the working directory back.

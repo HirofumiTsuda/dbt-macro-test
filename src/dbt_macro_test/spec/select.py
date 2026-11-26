@@ -1,8 +1,9 @@
 from collections.abc import Collection
 from dataclasses import replace
 from fnmatch import fnmatchcase
+from pathlib import Path
 
-from dbt_macro_test.spec.spec import SpecFile
+from dbt_macro_test.spec.spec import Case, SpecFile
 
 
 def case_id(macro: str, case: str) -> str:
@@ -57,6 +58,23 @@ def split_isolated(spec_files: list[SpecFile]) -> tuple[list[SpecFile], list[Spe
         if macros:
             together.append(replace(spec_file, macros=macros))
     return together, alone
+
+
+def without_case(spec_files: list[SpecFile], macro: str, case: Case, path: Path) -> list[SpecFile]:
+    """The specs without one case (the one of that name, under that macro, in the file at `path`),
+    and without the macro or the file that it leaves empty."""
+    result: list[SpecFile] = []
+    for spec_file in spec_files:
+        macros = []
+        for macro_spec in spec_file.macros:
+            if spec_file.path == path and macro_spec.macro == macro:
+                kept = [c for c in macro_spec.cases if c.name != case.name]
+                macro_spec = replace(macro_spec, cases=kept)
+            if macro_spec.cases:
+                macros.append(macro_spec)
+        if macros:
+            result.append(replace(spec_file, macros=macros))
+    return result
 
 
 def case_ids(spec_files: list[SpecFile]) -> list[str]:

@@ -244,12 +244,8 @@ def test_run_passes_defaults_and_jinja_expression_arguments(project: Path) -> No
 
 
 def test_run_shows_a_failure_of_dbt_as_an_error_not_a_traceback(project: Path) -> None:
-    (project / "macros" / "refs.sql").write_text(
-        "{% macro orders_count() %}(select count(*) from {{ ref('orders') }}){% endmacro %}\n"
-    )
-    write_spec(
-        project / "macro_test", "refs.yml", "orders_count", "counts_orders", rows=[{"result": 1}]
-    )
+    (project / "macros" / "broken.sql").write_text("{% macro broken( %}oops{% endmacro %}\n")
+    write_spec(project / "macro_test", "refs.yml", "greet", "any", rows=[{"result": "hello"}])
 
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "refs.yml")])
 
@@ -257,6 +253,49 @@ def test_run_shows_a_failure_of_dbt_as_an_error_not_a_traceback(project: Path) -
     assert isinstance(result.exception, SystemExit)
     assert "Error: dbt test could not run; see dbt's message above" in result.output
     assert "Traceback" not in result.output
+
+
+def test_a_case_whose_macro_raises_at_parse_errors_and_the_others_run(project: Path) -> None:
+    (project / "macros" / "refs.sql").write_text(
+        "{% macro orders_count() %}(select count(*) from {{ ref('orders') }}){% endmacro %}\n"
+    )
+    write_spec(
+        project / "macro_test", "refs.yml", "orders_count", "counts_orders", rows=[{"result": 1}]
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+
+    assert result.exit_code == 1
+    assert "ERROR orders_count::counts_orders" in result.output
+    assert "orders" in result.output
+    assert "select {{ orders_count() }} as result" in result.output
+    assert re.search(r"1 errored, \d+ passed", result.output)
+
+
+def test_every_case_that_raises_at_parse_errors_and_the_rest_still_run(project: Path) -> None:
+    write_spec(
+        project / "macro_test",
+        "raises.yml",
+        "positive",
+        "first",
+        arguments={"x": -1},
+        rows=[{"result": -1}],
+    )
+    write_spec(
+        project / "macro_test",
+        "raises_too.yml",
+        "positive",
+        "second",
+        arguments={"x": -2},
+        rows=[{"result": -2}],
+    )
+
+    result = CliRunner().invoke(main, ["run", str(project / "macro_test")])
+
+    assert result.exit_code == 1
+    assert "ERROR positive::first" in result.output
+    assert "ERROR positive::second" in result.output
+    assert re.search(r"2 errored, \d+ passed", result.output)
 
 
 def test_select_runs_only_the_matching_cases(project: Path) -> None:

@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import tempfile
 from collections.abc import Iterator
@@ -30,6 +31,7 @@ from dbt_macro_test.project import (
     generate_project,
     installed_packages_dir,
     macro_directories,
+    model_name,
     resolve_profiles_dir,
     resolve_project_root,
 )
@@ -43,7 +45,17 @@ from dbt_macro_test.spec import (
     load_specs,
     select_cases,
     split_isolated,
+    without_case,
 )
+
+
+class _DbtStopped(Exception):
+    """dbt stopped before the cases ran (an error where it parses the project)."""
+
+    def __init__(self, error: DbtError) -> None:
+        super().__init__(str(error))
+        self.reason = str(error)
+        self.message = f"{error.command} could not run; see dbt's message above"
 
 
 class CouldNotRun(click.ClickException):
@@ -124,7 +136,8 @@ def run(
 
     Exit code 0 means every case passed, 1 that a case failed or errored, and 2
     that the tests could not be run (an invalid spec, a wrong argument, no
-    project, dbt itself failing, or nothing matching --select).
+    project, dbt itself failing, or nothing matching --select). A case whose macro
+    raises where dbt parses the project is an error of that case, and the others run.
     """
     root, path = _locate(project_dir, path)
     spec_files = _load_and_select(path, selectors)
@@ -145,12 +158,25 @@ def run(
         if verbose:
             _say_what_is_carried_over(raw_config, root, packages_dir, profiles)
         outcome = RunOutcome(passed=True)
+        did_not_parse: list[tuple[str, str, str]] = []
         project = out_dir
-        if together:
+        while together:
             _generate(root, test_dir, together, raw_config, project, packages_dir)
-            outcome = _run_dbt(project, profiles, target, install)
+            try:
+                outcome = _run_dbt(project, profiles, target, install)
+            except _DbtStopped as stopped:
+                culprit = _blame(stopped.reason, together, test_dir)
+                if culprit is None:
+                    raise CouldNotRun(stopped.message) from stopped
+                path_of_spec, macro, case, model = culprit
+                sql = (project / "models" / f"{model}.sql").read_text().strip()
+                did_not_parse.append((case_id(macro, case.name), stopped.reason, sql))
+                together = without_case(together, macro, case, path_of_spec)
+                project = out_dir / "without-failed-cases" / str(len(did_not_parse))
+                continue
             _warn_left_behind(outcome.left_behind)
             _report_errors(outcome, project)
+            break
         verdicts = [
             _run_alone(
                 i,
@@ -162,8 +188,8 @@ def run(
             )
             for i, spec in enumerate(alone)
         ]
-        _report(outcome, verdicts, out_dir if keep_generated else None)
-    passed = outcome.passed and all(v.passed for _, v in verdicts)
+        _report(outcome, verdicts, did_not_parse, out_dir if keep_generated else None)
+    passed = outcome.passed and not did_not_parse and all(v.passed for _, v in verdicts)
     sys.exit(0 if passed else 1)
 
 
@@ -224,7 +250,23 @@ def _run_dbt(
             install_packages=install_packages,
         )
     except DbtError as e:
-        raise CouldNotRun(f"{e.command} could not run; see dbt's message above") from e
+        raise _DbtStopped(e) from e
+
+
+def _blame(
+    reason: str, spec_files: list[SpecFile], test_dir: Path
+) -> tuple[Path, str, Case, str] | None:
+    """The case that dbt's error is about, when the text of the error names exactly one of the
+    models of this run (dbt names the model it was rendering); None when it names none or several,
+    as for an error in a file of the project that no case is behind."""
+    named = []
+    for spec_file in spec_files:
+        for macro_spec in spec_file.macros:
+            for case in macro_spec.cases:
+                model = model_name(spec_file.path, test_dir.resolve(), macro_spec.macro, case.name)
+                if re.search(rf"(?<!\w){re.escape(model)}(?!\w)", reason):
+                    named.append((spec_file.path, macro_spec.macro, case, model))
+    return named[0] if len(named) == 1 else None
 
 
 def _warn_left_behind(names: list[str]) -> None:
@@ -278,12 +320,23 @@ def _run_alone(
     return case_id(macro_spec.macro, case.name), _judge(case, raw)
 
 
-def _report(outcome: RunOutcome, verdicts: list[tuple[str, Verdict]], kept: Path | None) -> None:
-    """The cases that ran alone, then the summary of all of them, then where the project is."""
+def _report(
+    outcome: RunOutcome,
+    verdicts: list[tuple[str, Verdict]],
+    did_not_parse: list[tuple[str, str, str]],
+    kept: Path | None,
+) -> None:
+    """The cases dbt could not parse, then those that ran alone, then the summary of all of them,
+    then where the project is."""
+    for identifier, reason, sql in did_not_parse:
+        click.echo(f"ERROR {identifier}: dbt stopped at this case\n{reason}", err=True)
+        click.echo(f"SQL generated for the case that errored:\n  {sql}", err=True)
     for identifier, verdict in verdicts:
         word = "PASS" if verdict.passed else "FAIL"
         click.echo(f"{word} {identifier}: {verdict.detail}", err=True)
     counts = dict(outcome.counts)
+    if did_not_parse:
+        counts["error"] = counts.get("error", 0) + len(did_not_parse)
     for _, verdict in verdicts:
         key = "pass" if verdict.passed else "fail"
         counts[key] = counts.get(key, 0) + 1

@@ -174,7 +174,9 @@ dbt-macro-test run --list --select greeting     # show what would run, run nothi
 
 The exit code is **0** when every case passed, **1** when a case failed or errored, and **2** when
 the tests could not be run at all: an invalid spec, a wrong argument, no dbt project, dbt itself
-failing, or nothing matching `--select`. The last line says what happened, such as
+failing (a syntax error in a macro file, for instance), or nothing matching `--select`. A case whose
+macro raises where dbt parses the project is an error of that case (the others run), as long as dbt
+names the case's model. The last line says what happened, such as
 `1 failed, 8 passed`.
 
 ## What is carried over from the project

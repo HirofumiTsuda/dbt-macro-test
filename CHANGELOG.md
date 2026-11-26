@@ -6,6 +6,12 @@ All notable changes are listed here, newest first. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A macro that raises where dbt parses the project (an unguarded `raise_compiler_error`, a `ref` that
+  does not exist) no longer stops every case: the case it is in is reported as errored, with dbt's
+  message and the SQL generated for it, and the others run. An error that names no case, such as a
+  syntax error in a macro file, still stops the run (exit code 2).
 ### Changed
 
 - The models that the tool generates are named `_dmt_<spec>_<macro>_<case>` (for *dbt macro test*),

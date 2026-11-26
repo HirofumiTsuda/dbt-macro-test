@@ -11,6 +11,7 @@ from dbt_macro_test.spec import (
     case_ids,
     select_cases,
     split_isolated,
+    without_case,
 )
 
 
@@ -155,3 +156,16 @@ def test_the_summary_puts_problems_first_and_leaves_out_zeros() -> None:
         == "1 errored, 2 failed, 4 passed"
     )
     assert RunOutcome(True).summary() == "no cases ran"
+
+
+def test_without_case_drops_one_case_and_what_it_leaves_empty() -> None:
+    first, second = case("one"), case("two")
+    path = Path("a.yml")
+    specs = [SpecFile(path, [MacroSpec("m", [first, second]), MacroSpec("n", [first])])]
+
+    one_left = without_case(specs, "m", first, path)
+    assert [c.name for c in one_left[0].macros[0].cases] == ["two"]
+    assert [m.macro for m in one_left[0].macros] == ["m", "n"]
+
+    assert without_case(without_case(one_left, "n", first, path), "m", second, path) == []
+    assert without_case(specs, "m", first, Path("other.yml")) == specs
