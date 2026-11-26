@@ -29,3 +29,9 @@
 {% macro order_columns(orders) -%}
     {{ adapter.get_columns_in_relation(orders) | map(attribute='name') | join(',') }}
 {%- endmacro %}
+
+{# Returns the text of a statement, which a case runs (`run: execute`): dbt's own merge, for the
+   `id` column. #}
+{% macro merge_orders_sql(target, source) %}
+    {{ return(dbt.get_merge_sql(target, source, 'id', adapter.get_columns_in_relation(target))) }}
+{% endmacro %}

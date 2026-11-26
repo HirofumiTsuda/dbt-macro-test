@@ -519,3 +519,35 @@ def test_invalid_inputs_are_reported(tmp_path: Path, inputs: str, message: str) 
         load_spec_file(write(tmp_path, inputs_case(inputs)))
 
     assert message in str(error.value)
+
+
+def run_case(extra: str, expect: str = "{rows: [{r: 1}], query: select 1 as r}") -> str:
+    return f"macros:\n  - macro: m\n    cases:\n      - name: a\n{extra}        expect: {expect}\n"
+
+
+def test_run_is_call_unless_it_says_execute(tmp_path: Path) -> None:
+    (plain,) = load_spec_file(write(tmp_path, run_case(""))).macros[0].cases
+    (called,) = load_spec_file(write(tmp_path, run_case("        run: call\n"))).macros[0].cases
+    (executed,) = (
+        load_spec_file(write(tmp_path, run_case("        run: execute\n"))).macros[0].cases
+    )
+
+    assert [plain.execute, called.execute, executed.execute] == [False, False, True]
+
+
+@pytest.mark.parametrize(
+    ("extra", "expect", "message"),
+    [
+        (
+            "        run: now\n",
+            "{rows: [{r: 1}], query: select 1 as r}",
+            "is not 'call' or 'execute'",
+        ),
+        ("        run: execute\n", "{rows: [{r: 1}]}", "so give one"),
+    ],
+)
+def test_invalid_run_is_reported(tmp_path: Path, extra: str, expect: str, message: str) -> None:
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, run_case(extra, expect)))
+
+    assert message in str(error.value)

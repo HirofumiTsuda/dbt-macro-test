@@ -1149,3 +1149,52 @@ def test_a_ref_that_no_case_gives_is_said_to_belong_under_given_inputs(project: 
     assert result.exit_code == 2
     assert "'orders'" in result.output
     assert "given.inputs" in result.output
+
+
+def write_merge_text_macro(project: Path) -> None:
+    (project / "macros" / "merge_text.sql").write_text(
+        "{% macro merge_text(target, source) %}\n"
+        "  {{ return(dbt.get_merge_sql(target, source, 'id', "
+        "adapter.get_columns_in_relation(target))) }}\n"
+        "{% endmacro %}\n"
+    )
+
+
+MERGE_CASE = """macros:
+  - macro: merge_text
+    cases:
+      - name: merges
+{run}        setup:
+          relations:
+            target: {{rows: [{{id: 1, v: old}}, {{id: 2, v: old}}]}}
+            source: {{rows: [{{id: 2, v: new}}, {{id: 3, v: new}}]}}
+        given:
+          arguments:
+            target: {{type: jinja, value: relations.target}}
+            source: {{type: jinja, value: relations.source}}
+        expect:
+          query: select id, v from {{{{ relations.target }}}} order by id
+          rows: [{{id: 1, v: old}}, {{id: 2, v: new}}, {{id: 3, v: new}}]
+"""
+
+
+def test_a_macro_that_returns_a_statement_is_run_when_the_case_says_execute(project: Path) -> None:
+    write_merge_text_macro(project)
+    spec = project / "macro_test" / "merge_text.yml"
+    spec.write_text(MERGE_CASE.format(run="        run: execute\n"))
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 0, result.output
+    assert "1 passed" in result.output
+
+
+def test_the_same_case_without_execute_runs_nothing_and_fails(project: Path) -> None:
+    write_merge_text_macro(project)
+    spec = project / "macro_test" / "merge_text.yml"
+    spec.write_text(MERGE_CASE.format(run=""))
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output

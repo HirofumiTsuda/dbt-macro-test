@@ -50,6 +50,7 @@ class Case:
     setup: tuple[SetupRelation, ...] = ()
     query: str | None = None
     inputs: tuple[GivenInput, ...] = ()
+    execute: bool = False
 
     @property
     def runs_own_sql(self) -> bool:
@@ -67,7 +68,8 @@ class Case:
         connection dbt gives the test, and their names are logged so that the tool can drop them
         afterwards (`__dmt_relation__`): a temporary relation is not temporary on every adapter.
         With a `query` the macro is then run for what it does, its text dropped, and the model is
-        the query; without one, the macro's output is the model, as before.
+        the query; without one, the macro's output is the model, as before. With `execute` the text
+        the macro returns is a statement, and it is run (`run_query`) instead of dropped.
         """
         if not self.runs_own_sql:
             return self.output.model_sql(call)
@@ -93,7 +95,8 @@ class Case:
                 f'"identifier": {ref}.identifier, "type": "table"}}), info=false) %}}'
             )
         if self.query is not None:
-            lines.append(f"{{% do {call} %}}")
+            statement = f"run_query({call})" if self.execute else call
+            lines.append(f"{{% do {statement} %}}")
         lines.append("{% endif %}")
         if self.query is None:
             lines.append(self.output.model_sql(call).rstrip("\n"))
@@ -359,6 +362,23 @@ def _parse_query(value: Any, path: Path, where: str) -> str | None:
     return query
 
 
+def _parse_run(value: Any, path: Path, where: str, query: str | None) -> bool:
+    """`run: call` (the default: the macro is run for what it does) or `run: execute` (what the
+    macro returns is a statement, and the tool runs it). Whether the case executes."""
+    if value == "call":
+        return False
+    if value != "execute":
+        raise _fail(path, f"{where}.run", f"{value!r} is not 'call' or 'execute'")
+    if query is None:
+        raise _fail(
+            path,
+            f"{where}.run",
+            "'execute' runs the statement the macro returns, and what it did is shown by "
+            "expect.query, so give one",
+        )
+    return True
+
+
 def _parse_setup(value: Any, path: Path, where: str) -> tuple[SetupRelation, ...]:
     """The relations a case needs: `setup: {relations: {name: {rows: [...]} | {sql: ...}}}`."""
     here = f"{where}.setup"
@@ -434,7 +454,7 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         path,
         where,
         required=["name", "expect"],
-        optional=["given", "output", "overrides", "setup"],
+        optional=["given", "output", "overrides", "setup", "run"],
     )
     name = _parse_name(body["name"], path, where)
     output = _parse_output(body.get("output", Output.EXPRESSION.label), path, where)
@@ -455,6 +475,7 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
             "what it does and the query is what is compared, so give one or the other",
         )
     setup = _parse_setup(body["setup"], path, where) if "setup" in body else ()
+    execute = _parse_run(body.get("run", "call"), path, where, query)
     return Case(
         name=name,
         arguments=arguments,
@@ -465,4 +486,5 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         setup=setup,
         query=query,
         inputs=inputs,
+        execute=execute,
     )

@@ -367,3 +367,11 @@ def test_a_project_without_inputs_has_no_stand_in_nodes() -> None:
     assert [k for k in files if k.startswith("models/") and "_dmt_" not in k] == [
         "models/_unit_tests.yml"
     ]
+
+
+def test_a_case_that_executes_runs_the_statement_the_macro_returns_instead_of_dropping_it() -> None:
+    called = sql_case(setup=(SetupRelation("t", sql="select 1"),), query="select 1")
+    executed = sql_case(setup=(SetupRelation("t", sql="select 1"),), query="select 1", execute=True)
+
+    assert "{% do m(a=1) %}" in called.model_sql("m(a=1)").splitlines()
+    assert "{% do run_query(m(a=1)) %}" in executed.model_sql("m(a=1)").splitlines()

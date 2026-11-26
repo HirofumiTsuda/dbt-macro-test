@@ -97,3 +97,28 @@ macros:
         expect:
           rows:
             - {result: "id,status,amount"}
+
+  - macro: merge_orders_sql                        # returns the text of a statement, not a result
+    cases:
+      - name: the_statement_it_returns_merges_the_rows
+        run: execute                               # run what the macro returns, then compare
+        setup:
+          relations:
+            target:
+              rows:
+                - {id: 1, status: open}
+                - {id: 2, status: open}
+            source:
+              rows:
+                - {id: 2, status: shipped}
+                - {id: 3, status: open}
+        given:
+          arguments:
+            target: {type: jinja, value: relations.target}
+            source: {type: jinja, value: relations.source}
+        expect:
+          query: select id, status from {{ relations.target }} order by id
+          rows:
+            - {id: 1, status: open}
+            - {id: 2, status: shipped}
+            - {id: 3, status: open}

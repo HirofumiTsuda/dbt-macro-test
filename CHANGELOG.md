@@ -15,6 +15,10 @@ All notable changes are listed here, newest first. The format follows
 
 ### Added
 
+- `run: execute`: a macro that returns the text of a statement, such as `dbt.get_merge_sql`, has that
+  statement run by the tool (`run_query`), and `expect.query` shows what it did to the relations of
+  the case. Without it the text is dropped, as before. Only duckdb has been tried.
+
 - `given.inputs`: a macro that calls `ref()` or `source()` itself (`dbt_utils.star` on a model,
   `basic_aggregation` over rows) is given the rows it is to see, as `rows` or a `select`. The tool
   writes a stand-in for each node, which is never built, and hands the rows to dbt as a select,

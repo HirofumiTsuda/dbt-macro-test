@@ -17,6 +17,7 @@ macros:                       # required: a list
         output: expression    # optional: expression (default), columns, query or text
         overrides: {}         # optional: macros, vars and env_vars; see "Overrides"
         setup: {}             # optional: relations made for the case; see "A macro that writes"
+        run: call             # optional: call (default) or execute; see "A macro that returns a statement"
         expect:               # required: exactly one of rows, fixture and error
           rows:
             - {result: 2.5}
@@ -260,11 +261,39 @@ tool's. Read in the code of each adapter's current release (only duckdb was run)
 | BigQuery | a real table, with an expiry of 12 hours | until dropped | works; the tool drops it |
 | Trino | a normal table | for ever | works; the tool drops it |
 
-Not tried: any adapter other than duckdb (the table is the code, not a run); a macro that uses
-`statement` blocks or `adapter.*` instead of `run_query`; a run that is killed before the drop (the
+Not tried: any adapter other than duckdb (the table is the code, not a run); a run that is killed before the drop (the
 names say when the relations were made, so a leftover can be found and removed by hand). A macro that
 reads the `config`, `this` or `is_incremental()` of the model it runs in sees the generated model's,
 as for `output: text`.
+
+### A macro that returns a statement
+
+A macro such as `dbt.get_merge_sql` does not run anything: it returns the text of a statement.
+`output: text` compares that text. To see what the statement **does**, say `run: execute`: the tool
+runs what the macro returns (`run_query`), and `expect.query` shows the rows afterwards.
+
+```yaml
+- name: the_statement_it_returns_merges_the_rows
+  run: execute
+  setup:
+    relations:
+      target: {rows: [{id: 1, status: open}, {id: 2, status: open}]}
+      source: {rows: [{id: 2, status: shipped}, {id: 3, status: open}]}
+  given:
+    arguments:
+      target: {type: jinja, value: relations.target}
+      source: {type: jinja, value: relations.source}
+  expect:
+    query: select id, status from {{ relations.target }} order by id
+    rows: [{id: 1, status: open}, {id: 2, status: shipped}, {id: 3, status: open}]
+```
+
+- `run` is `call` unless it says otherwise: the macro is run for what it does and the text it
+  returns is dropped. `run: execute` without `expect.query` is an error, since nothing would show
+  what the statement did.
+- One statement: `run_query` runs the text as it is, so a macro that returns several statements
+  has to be given as one each. The same warning as above applies: it writes, on the target.
+- Tried on duckdb, with `dbt.get_merge_sql` on the relations of a case.
 
 ## A macro that calls ref or source
 
