@@ -6,7 +6,7 @@ from typing import Any
 
 # What a model logs for each relation it makes, followed by that relation as JSON, so that the tool
 # can drop it afterwards.
-RELATION_MARK = "__mt_relation__"
+RELATION_MARK = "__dmt_relation__"
 
 _COLUMN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 

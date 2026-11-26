@@ -31,8 +31,8 @@ agg --theme github-dark --font-family "DejaVu Sans Mono" --font-size 14 \
 
 Made with asciinema 2.4.0 and [agg](https://github.com/asciinema/agg) 1.9.0 (the Linux x86_64
 binary of the release, checked against the SHA-256 that GitHub publishes for it,
-`f111e315cd71056b116302342553dd765b7297579ed511f111d0cedb442aeda6`), with dbt-core 1.12.5 and
-dbt-duckdb 1.11.0. The times in the output are those of the day it was recorded.
+`f111e315cd71056b116302342553dd765b7297579ed511f111d0cedb442aeda6`), with dbt-core 1.12.7 and
+dbt-duckdb 1.11.1. The times in the output are those of the day it was recorded.
 
 The README refers to the GIF by its address on `main`, since PyPI, which shows the README as the
 page, cannot read an image by a relative path. If the file is renamed or moved, change that address.

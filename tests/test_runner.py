@@ -149,7 +149,7 @@ def test_the_relations_are_dropped_by_a_run_operation_with_the_names_that_were_l
     left = runner.drop_relations(tmp_path, relations, profiles_dir=tmp_path, target="ci")
 
     (args,) = calls
-    assert args[2:4] == ["run-operation", "_mt_drop"]
+    assert args[2:4] == ["run-operation", "_dmt_drop"]
     assert json.loads(args[args.index("--args") + 1]) == {"relations": relations}
     assert args[args.index("--target") + 1] == "ci"
     assert left == []

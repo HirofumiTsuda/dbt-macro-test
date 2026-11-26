@@ -23,7 +23,7 @@ class UnitTest(TypedDict):
     expect: UnitTestExpect
 
 
-CLEANUP_PATH = "macros/_mt_drop.sql"
+CLEANUP_PATH = "macros/_dmt_drop.sql"
 
 
 def cleanup_macro() -> str:
@@ -61,7 +61,7 @@ def project_config(
     config["model-paths"] = ["models"]
     config["macro-paths"] = [str(p) for p in macro_directories(raw, root)]
     if has_relations:
-        config["macro-paths"].append("macros")  # the generated project's own: _mt_drop
+        config["macro-paths"].append("macros")  # the generated project's own: _dmt_drop
     for key in ("seed-paths", "snapshot-paths", "analysis-paths"):
         config[key] = []
     config["test-paths"] = ["tests"] if has_fixtures else []
@@ -81,7 +81,7 @@ def macro_call(macro: str, arguments: dict[str, Any]) -> str:
 
 def model_name(spec_path: Path, test_dir: Path, macro: str, case: str) -> str:
     relative = spec_path.relative_to(test_dir).with_suffix("")
-    return re.sub(r"\W", "_", f"_mt_{relative.as_posix()}_{macro}_{case}")
+    return re.sub(r"\W", "_", f"_dmt_{relative.as_posix()}_{macro}_{case}")
 
 
 def build_files(
@@ -96,7 +96,7 @@ def build_files(
 ) -> dict[str, str]:
     """The generated project, as relative path -> file content.
 
-    `run_id` is in the name of every relation that a case makes (`_mt_<run_id>_<n>_<name>`).
+    `run_id` is in the name of every relation that a case makes (`_dmt_<run_id>_<n>_<name>`).
     """
     fixtures = fixtures or {}
     fixture_formats = {name: fixture.format for name, fixture in fixtures.items()}
@@ -126,7 +126,7 @@ def build_files(
                 path = f"models/{name}.sql"
                 if path in files:
                     raise ValueError(f"{spec_file.path}: {name} is generated more than once")
-                files[path] = case.model_sql(call, f"_mt_{run_id}_{case_number}_")
+                files[path] = case.model_sql(call, f"_dmt_{run_id}_{case_number}_")
                 case_number += 1
                 unit_test = UnitTest(
                     name=case.name,

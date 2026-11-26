@@ -72,7 +72,7 @@ def test_run_says_what_it_carries_over_when_verbose(project: Path) -> None:
 def test_run_takes_a_var_from_the_environment(
     project: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setenv("MT_COUNTRY", "US")
+    monkeypatch.setenv("DMT_COUNTRY", "US")
     write_spec(
         project / "macro_test",
         "us.yml",
@@ -700,8 +700,8 @@ PERSISTENT = """{% macro duckdb__create_table_as(temporary, relation, compiled_c
 
 
 def made_by_the_tool(database: Path) -> list[str]:
-    """The relations of the cases (`_mt_...`), apart from what dbt makes for its own unit tests."""
-    return [name for name in tables_in(database) if name.startswith("_mt_")]
+    """The relations of the cases (`_dmt_...`), apart from what dbt makes for its own unit tests."""
+    return [name for name in tables_in(database) if name.startswith("_dmt_")]
 
 
 def persistent_project(project: Path, tmp_path: Path) -> Path:
@@ -742,7 +742,7 @@ def test_the_tool_says_which_relations_it_could_not_drop(
 ) -> None:
     from dbt_macro_test.engine import runner
 
-    monkeypatch.setattr(runner, "drop_relations", lambda *a, **k: ["_mt_x_0_target"])
+    monkeypatch.setattr(runner, "drop_relations", lambda *a, **k: ["_dmt_x_0_target"])
 
     result = run_relations(
         project,
@@ -754,7 +754,7 @@ def test_the_tool_says_which_relations_it_could_not_drop(
     )
 
     assert result.exit_code == 0, result.output
-    assert "could not be dropped and may be left in the warehouse: _mt_x_0_target" in result.output
+    assert "could not be dropped and may be left in the warehouse: _dmt_x_0_target" in result.output
 
 
 def test_run_passes_for_macros_that_return_a_whole_query(project: Path) -> None:
@@ -839,7 +839,7 @@ def test_a_case_that_raises_does_not_stop_the_others(project: Path) -> None:
 
     assert result.exit_code == 0, result.output
     assert "PASS positive::raises_when_not_guarded" in result.output
-    assert "PASS _mt_errors_positive_does_not_raise_for_a_good_value" in result.output
+    assert "PASS _dmt_errors_positive_does_not_raise_for_a_good_value" in result.output
     assert "4 passed" in result.output
     assert "failed" not in result.output
 

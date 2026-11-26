@@ -12,7 +12,7 @@ from dbt_macro_test.project import (
     project_config,
     write_project,
 )
-from dbt_macro_test.project.generate import CLEANUP_PATH, cleanup_macro
+from dbt_macro_test.project.generate import CLEANUP_PATH, cleanup_macro, new_run_id
 from dbt_macro_test.spec import Case, InlineRows, MacroSpec, Overrides, SetupRelation, SpecFile
 
 RAW: dict[str, Any] = {
@@ -70,7 +70,7 @@ def test_macro_call_passes_arguments_by_name() -> None:
 def test_model_name_is_unique_per_spec_file_macro_and_case(tmp_path: Path) -> None:
     name = model_name(tmp_path / "utils" / "a-b.yml", tmp_path, "pkg.m", "case_1")
 
-    assert name == "_mt_utils_a_b_pkg_m_case_1"
+    assert name == "_dmt_utils_a_b_pkg_m_case_1"
 
 
 def make_spec(test_dir: Path) -> SpecFile:
@@ -83,14 +83,14 @@ def make_spec(test_dir: Path) -> SpecFile:
 def test_build_files_generates_a_model_and_a_unit_test_per_case(tmp_path: Path) -> None:
     files = build_files(RAW, tmp_path, tmp_path, [make_spec(tmp_path)], packages_yml=None)
 
-    assert files["models/_mt_safe_safe_divide_zero.sql"] == (
+    assert files["models/_dmt_safe_safe_divide_zero.sql"] == (
         "select {{ safe_divide(denominator=0) }} as result\n"
     )
     assert yaml.safe_load(files["models/_unit_tests.yml"]) == {
         "unit_tests": [
             {
                 "name": "zero",
-                "model": "_mt_safe_safe_divide_zero",
+                "model": "_dmt_safe_safe_divide_zero",
                 "given": [],
                 "expect": {"format": "dict", "rows": [{"result": None}]},
             }
@@ -204,24 +204,24 @@ def test_a_case_with_relations_and_a_query_makes_them_runs_the_macro_and_ends_wi
         query="select * from {{ relations.target }}",
     )
 
-    lines = case.model_sql("m(a=1)", "_mt_r_0_").splitlines()
+    lines = case.model_sql("m(a=1)", "_dmt_r_0_").splitlines()
 
     assert lines[0] == "{% set relations = namespace() %}"
     assert lines[1] == (
         "{% set relations.target = make_temp_relation(api.Relation.create("
         "database=target.get('database'), schema=target.schema, "
-        'identifier="_mt_r_0_target")) %}'
+        'identifier="_dmt_r_0_target")) %}'
     )
     assert lines[2].startswith("{% set relations.src = make_temp_relation(")
     assert lines[3] == "{% if execute %}"
     assert lines[4:7] == [
-        "{% set _mt_sql %}select 1 as id{% endset %}",
-        "{% do run_query(create_table_as(true, relations.target, _mt_sql)) %}",
-        '{% do log("__mt_relation__" ~ tojson({"database": relations.target.database, '
+        "{% set _dmt_sql %}select 1 as id{% endset %}",
+        "{% do run_query(create_table_as(true, relations.target, _dmt_sql)) %}",
+        '{% do log("__dmt_relation__" ~ tojson({"database": relations.target.database, '
         '"schema": relations.target.schema, "identifier": relations.target.identifier, '
         '"type": "table"}), info=false) %}',
     ]
-    assert lines[7] == "{% set _mt_sql %}select 2 as id{% endset %}"
+    assert lines[7] == "{% set _dmt_sql %}select 2 as id{% endset %}"
     assert lines[-3:] == [
         "{% do m(a=1) %}",
         "{% endif %}",
@@ -241,7 +241,7 @@ def test_a_relation_named_like_a_method_of_a_dict_is_still_the_relation() -> Non
 def test_relations_without_a_query_keep_the_output_of_the_macro_as_the_result() -> None:
     case = sql_case(setup=(SetupRelation("t", sql="select 1 as id"),))
 
-    lines = case.model_sql("m()", "_mt_r_0_").splitlines()
+    lines = case.model_sql("m()", "_dmt_r_0_").splitlines()
 
     assert lines[-2:] == ["{% endif %}", "select {{ m() }} as result"]
     assert "{% do m() %}" not in lines
@@ -268,21 +268,28 @@ def test_a_project_with_relations_gets_the_macro_that_drops_them_and_names_by_th
 
     files = build_files(RAW, Path("/p"), Path("/p/m"), [spec], run_id="20261126T000000_abc123")
 
-    assert "drop_relation_if_exists" in files["macros/_mt_drop.sql"]
-    assert "adapter.commit()" in files["macros/_mt_drop.sql"]
+    assert "drop_relation_if_exists" in files["macros/_dmt_drop.sql"]
+    assert "adapter.commit()" in files["macros/_dmt_drop.sql"]
     assert yaml.safe_load(files["dbt_project.yml"])["macro-paths"][-1] == "macros"
-    model = next(v for k, v in files.items() if k.startswith("models/_mt_") and k.endswith(".sql"))
-    assert '"_mt_20261126T000000_abc123_0_t"' in model
+    model = next(v for k, v in files.items() if k.startswith("models/_dmt_") and k.endswith(".sql"))
+    assert '"_dmt_20261126T000000_abc123_0_t"' in model
 
 
 def test_the_macro_that_drops_the_relations_is_a_file_of_the_package() -> None:
-    packaged = resources.files("dbt_macro_test.project").joinpath("macros/_mt_drop.sql")
+    packaged = resources.files("dbt_macro_test.project").joinpath("macros/_dmt_drop.sql")
 
     text = packaged.read_text()
 
     assert cleanup_macro() == text
-    assert "{% macro _mt_drop(relations) %}" in text
-    assert CLEANUP_PATH == "macros/_mt_drop.sql"
+    assert "{% macro _dmt_drop(relations) %}" in text
+    assert CLEANUP_PATH == "macros/_dmt_drop.sql"
+
+
+def test_the_part_of_a_relation_name_that_the_tool_chooses_leaves_room_for_the_name() -> None:
+    # An adapter adds a suffix to it (Postgres, whose names stop at 63 characters, adds 21 and
+    # cuts the end of what it is given, so what the tool puts first is kept): the more this takes,
+    # the less is left of the author's name. A project of up to 999 cases stays within 32.
+    assert len(f"_dmt_{new_run_id()}_999_") <= 32
 
 
 def test_a_project_without_relations_is_as_before() -> None:
@@ -290,7 +297,7 @@ def test_a_project_without_relations_is_as_before() -> None:
 
     files = build_files(RAW, Path("/p"), Path("/p/m"), [spec])
 
-    assert "macros/_mt_drop.sql" not in files
+    assert "macros/_dmt_drop.sql" not in files
     assert "macros" not in yaml.safe_load(files["dbt_project.yml"])["macro-paths"]
 
 
@@ -311,5 +318,5 @@ def test_each_case_of_a_project_has_names_of_its_own() -> None:
 
     first = next(v for k, v in files.items() if k.endswith("first.sql"))
     second = next(v for k, v in files.items() if k.endswith("second.sql"))
-    assert '"_mt_r_0_t"' in first and '"_mt_r_1_t"' not in first
-    assert '"_mt_r_1_t"' in second and '"_mt_r_0_t"' not in second
+    assert '"_dmt_r_0_t"' in first and '"_dmt_r_1_t"' not in first
+    assert '"_dmt_r_1_t"' in second and '"_dmt_r_0_t"' not in second

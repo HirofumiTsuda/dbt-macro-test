@@ -4,7 +4,7 @@ config-version: 2
 profile: fixture_project
 macro-paths: ["macros", "more_macros"]
 vars:
-  country: "{{ env_var('MT_COUNTRY', 'JP') }}"
+  country: "{{ env_var('DMT_COUNTRY', 'JP') }}"
   region: eu
 on-run-start:
   - "select 1"
