@@ -61,3 +61,39 @@ macros:
         expect:
           rows:
             - {result: 1250}
+
+  - macro: archive_cancelled                       # a macro that writes with a `statement` block
+    cases:
+      - name: copies_only_the_cancelled_orders
+        setup:
+          relations:
+            orders:
+              rows:
+                - {id: 1, status: open}
+                - {id: 2, status: cancelled}
+            archive:
+              sql: select 0 as id, 'cancelled' as status where false   # an empty relation, of the same columns
+        given:
+          arguments:
+            orders: {type: jinja, value: relations.orders}
+            archive: {type: jinja, value: relations.archive}
+        expect:
+          query: select id, status from {{ relations.archive }}
+          rows:
+            - {id: 2, status: cancelled}
+
+  - macro: order_columns                           # a macro that reads through `adapter`
+    cases:
+      - name: names_the_columns_of_a_relation
+        output: text                               # the macro returns text, not an expression
+        setup:
+          relations:
+            orders:
+              rows:
+                - {id: 1, status: open, amount: 100}
+        given:
+          arguments:
+            orders: {type: jinja, value: relations.orders}
+        expect:
+          rows:
+            - {result: "id,status,amount"}

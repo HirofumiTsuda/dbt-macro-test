@@ -9,7 +9,7 @@ A small dbt project of a shop, with duckdb, and a spec in `macro_test/` for each
 ```bash
 pip install dbt-duckdb dbt-macro-test       # in a checkout: uv run dbt-macro-test, as below
 cd dev/sample_project
-dbt-macro-test run                           # 21 cases, all of them pass
+dbt-macro-test run                           # 23 cases, all of them pass
 dbt-macro-test run --list                    # the cases, as macro::case
 dbt-macro-test run --select "price_*"        # some of them
 ```
@@ -28,7 +28,7 @@ Nothing has to be set up: the profile is duckdb in memory. dbt writes `target/`,
 | `errors_and_warnings.yml` | `quantity`, `status` | an error that a macro raises (`expect.error`) and a warning it gives (`expect.warning`), which run in a run of dbt of their own |
 | `overrides.yml` | `greeting`, `price_with_tax` | what a macro reads from its surroundings, set for one case: a var, an environment variable, another macro |
 | `formats.yml` + `fixtures/` | `all_orders` | the expected rows as csv, as a select, and in a fixture file |
-| `relations.yml` | `upsert_orders`, `remove_cancelled`, `order_total` | a macro that **writes** to a relation (a merge, a delete) or reads one: the tool makes the relations of the case, from rows or a select, as temporary ones, and drops them afterwards; what is compared is the rows a query returns. **These run SQL in the warehouse of the target**: see the warning in the spec reference |
+| `relations.yml` | `upsert_orders`, `remove_cancelled`, `archive_cancelled`, `order_total`, `order_columns` | a macro that **writes** to a relation (a merge, a delete, an insert in a `statement` block) or reads one (the value of a query, the columns through `adapter`): the tool makes the relations of the case, from rows or a select, as temporary ones, and drops them afterwards; what is compared is the rows a query returns. **These run SQL in the warehouse of the target**: see the warning in the spec reference |
 
 The macros are in `macros/`, each with a line on what it is for. `tax_rate` is the one that has no
 case of its own: it is there to be overridden.

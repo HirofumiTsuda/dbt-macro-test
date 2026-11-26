@@ -16,3 +16,16 @@
 {% macro order_total(orders) -%}
     (select sum(amount) from {{ orders }})
 {%- endmacro %}
+
+{# Writes, with a `statement` block instead of `run_query`: copies the cancelled orders of one
+   relation into another. #}
+{% macro archive_cancelled(orders, archive) %}
+    {% call statement('archive_cancelled', fetch_result=False, auto_begin=False) %}
+        insert into {{ archive }} select * from {{ orders }} where status = 'cancelled'
+    {% endcall %}
+{% endmacro %}
+
+{# Reads, through `adapter`: the names of the columns of a relation, as one string. #}
+{% macro order_columns(orders) -%}
+    {{ adapter.get_columns_in_relation(orders) | map(attribute='name') | join(',') }}
+{%- endmacro %}
