@@ -1,0 +1,63 @@
+# A macro that writes to a relation, or reads one. The tool makes the relations of the case
+# (`setup.relations`, from rows or from a select), as temporary ones, and drops them afterwards;
+# the macro is given them as arguments: `{type: jinja, value: relations.<name>}`.
+#
+# These cases run SQL in the warehouse of the target: a macro that named a real table itself
+# would write it. Here duckdb is in memory. Run specs like these on a local or throwaway target.
+macros:
+  - macro: upsert_orders
+    cases:
+      - name: updates_the_changed_orders_and_adds_the_new_ones
+        setup:
+          relations:
+            target:
+              rows:
+                - {id: 1, status: open}
+                - {id: 2, status: open}
+            source:                      # a select of your own, instead of rows
+              sql: select 2 as id, 'shipped' as status union all select 3, 'open'
+        given:
+          arguments:
+            target: {type: jinja, value: relations.target}
+            source: {type: jinja, value: relations.source}
+        expect:
+          query: select * from {{ relations.target }}    # what to compare, after the macro has run
+          rows:
+            - {id: 1, status: open}
+            - {id: 2, status: shipped}
+            - {id: 3, status: open}
+
+  - macro: remove_cancelled
+    cases:
+      - name: keeps_the_orders_that_are_not_cancelled
+        setup:
+          relations:
+            orders:
+              rows:
+                - {id: 1, status: open}
+                - {id: 2, status: cancelled}
+                - {id: 3, status: shipped}
+        given:
+          arguments:
+            orders: {type: jinja, value: relations.orders}
+        expect:
+          query: select id, status from {{ relations.orders }}
+          rows:
+            - {id: 1, status: open}
+            - {id: 3, status: shipped}
+
+  - macro: order_total
+    cases:
+      - name: adds_up_the_amounts_of_a_relation       # no query: the macro's value is compared
+        setup:
+          relations:
+            orders:
+              rows:
+                - {id: 1, amount: 1000}
+                - {id: 2, amount: 250}
+        given:
+          arguments:
+            orders: {type: jinja, value: relations.orders}
+        expect:
+          rows:
+            - {result: 1250}
