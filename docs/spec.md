@@ -173,6 +173,11 @@ text. What the statement would do is not tested, only what it says.
   adapter may override; only duckdb has been tried.
 - Without `output: text`, the same macro is taken for a SQL expression, and `Hello, World!` is a
   syntax error (`select Hello, World! as result`).
+- **A macro that reads the `config` of the model it runs in sees the generated model's, which is
+  empty.** dbt-duckdb's `get_merge_sql`, for example, validates the `merge_*` settings and stops
+  with `MERGE configuration errors`; the macros that take everything as arguments work. The same
+  holds for `this` and `is_incremental()`: they are those of the generated model. Setting a model's
+  `config` for a case is not supported.
 
 A relation that exists only in the project (a model, a source) needs the inputs
 a unit test gives to `ref()` and `source()`, which are not supported yet.
