@@ -126,8 +126,6 @@ is added to your project or to its manifest (after a run, the files of the proje
 for byte, apart from the `.user.yml` that dbt itself writes), and a CI job needs one command and its
 exit codes.
 
-*I built it after running into this at work.*
-
 ## How it works
 
 ![One spec, dbt does the running: your macro and spec go into dbt-macro-test run, which checks the arguments and generates a throwaway dbt project; dbt runs the unit test in your warehouse through your adapter, compares the rows and prints its own diff](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/overview.png)
