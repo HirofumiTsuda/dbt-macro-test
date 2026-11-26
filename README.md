@@ -245,8 +245,7 @@ Each of these has an issue.
 
 - Asserting on a macro's return value without a database
   ([#11](https://github.com/HirofumiTsuda/dbt-macro-test/issues/11)).
-- A macro that returns the text of a statement for the tool to run, `run: execute`; the setup of a
-  case from a csv or a file; any macro that writes, on an adapter other than duckdb
+- The setup of a case from a csv or a file; any macro that writes, on an adapter other than duckdb
   ([#30](https://github.com/HirofumiTsuda/dbt-macro-test/issues/30)).
 - A `ref` of a model of a package, `ref('package', 'model')`, as an input
   ([#9](https://github.com/HirofumiTsuda/dbt-macro-test/issues/9)).
