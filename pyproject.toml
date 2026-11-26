@@ -33,7 +33,7 @@ dependencies = [
 Repository = "https://github.com/HirofumiTsuda/dbt-macro-test"
 Issues = "https://github.com/HirofumiTsuda/dbt-macro-test/issues"
 Changelog = "https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/CHANGELOG.md"
-Documentation = "https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md"
+Documentation = "https://hirofumitsuda.github.io/dbt-macro-test/"
 
 [project.scripts]
 dbt-macro-test = "dbt_macro_test.cli:main"

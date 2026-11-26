@@ -12,6 +12,9 @@ Call a macro with the arguments you choose, say what it should return, and run i
 or in CI. A test is a few lines of YAML; the tool turns each case into one of dbt's own unit tests,
 so the result, and the diff when it fails, are dbt's.
 
+**Documentation: <https://hirofumitsuda.github.io/dbt-macro-test/>**: a guide of what to write for
+the macro you have, and every key of a spec.
+
 ![dbt-macro-test run on the sample project: the 26 cases are listed and pass; after one expected value is changed, that case fails and dbt's diff is shown](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/demo.gif)
 
 - **A macro can be tested like a function.** Arguments in, rows out. dbt's native unit tests cover
