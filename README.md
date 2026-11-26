@@ -117,8 +117,8 @@ has the evidence for the gap and the prior art.
 ## What a spec can say
 
 Arguments are given by name. A case can expect rows (written out, as csv or SQL, or in a file),
-an error, or a warning; it can return a whole `select`, several columns, or a value of a
-composite type; and it can override macros, `vars` and environment variables for that case. All
+an error, or a warning; it can return a whole `select`, several columns, a value of a
+composite type, or text that is not SQL (a slug, the text of a `merge`); and it can override macros, `vars` and environment variables for that case. All
 of it is in the [spec reference](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md).
 
 ## The command line

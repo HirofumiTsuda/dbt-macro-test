@@ -4,6 +4,15 @@ All notable changes are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow
 [Semantic Versioning](https://semver.org/); before 1.0.0, a minor version may change the spec format.
 
+## [Unreleased]
+
+### Added
+
+- `output: text`: a macro that returns text that is not SQL (a slug such as `dbt_utils.slugify`,
+  the text of a `merge`) is compared as text. The text is returned as one string, with a single
+  quote escaped by dbt's own macro and the blank space at both ends dropped. Only duckdb has been
+  tried.
+
 ## [0.1.0] - 2026-11-25
 
 The first release.
