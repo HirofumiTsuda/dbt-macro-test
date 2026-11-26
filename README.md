@@ -100,6 +100,25 @@ actual differs from expected:
 Both outputs are trimmed (dbt's start-up lines and the timestamps are left out). They are from
 running exactly this, in a new project with a duckdb profile and the tool installed as above.
 
+## Why this exists
+
+dbt's unit tests are for models. To test a macro, you wrap it in a model that calls it, and write a
+unit test of that model. People do this by hand, and keep asking for something better:
+
+- [dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547), "Unit test support for
+  macros": opened in August 2024 and, as of November 2026, still open (10 comments, 21 👍). It
+  names this workaround as the alternative and calls it cumbersome.
+- [A write-up of the workaround](https://www.dumky.net/posts/unit-testing-dbt-macros-a-workaround-for-dbts-unit-testing-limitations/)
+  (March 2025): a dummy model that applies the macro, with a unit test on it, which its author
+  says is "not as good as having native support for macro testing".
+- [EqualExperts/dbt-unit-testing](https://github.com/EqualExperts/dbt-unit-testing), the package
+  for testing models, answered in January 2024 that it had no plans to support macros.
+
+This tool is that workaround, generated: one YAML spec under `macro_test/`, one command, and the
+exit codes a CI job needs. dbt does the running, so what it reports is dbt's.
+
+*I built it after running into this at work.*
+
 ## How it works
 
 ![One spec, dbt does the running: your macro and spec go into dbt-macro-test run, which checks the arguments and generates a throwaway dbt project; dbt runs the unit test in your warehouse through your adapter, compares the rows and prints its own diff](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/overview.png)
