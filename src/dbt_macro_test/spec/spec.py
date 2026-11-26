@@ -51,6 +51,7 @@ class Case:
     query: str | None = None
     inputs: tuple[GivenInput, ...] = ()
     execute: bool = False
+    adapters: tuple[str, ...] = ()  # the adapters the case is for; none: every adapter
 
     @property
     def runs_own_sql(self) -> bool:
@@ -362,6 +363,18 @@ def _parse_query(value: Any, path: Path, where: str) -> str | None:
     return query
 
 
+def _parse_adapters(value: Any, path: Path, where: str) -> tuple[str, ...]:
+    """`adapters: [duckdb, postgres]`: the adapters (the `type` of a target) a case is for."""
+    here = f"{where}.adapters"
+    names = _list(value, path, here)
+    if not names:
+        raise _fail(path, here, "must name at least one adapter (leave it out for all of them)")
+    for name in names:
+        if not isinstance(name, str) or not _IDENTIFIER.match(name):
+            raise _fail(path, here, f"{name!r} is not the name of an adapter, such as duckdb")
+    return tuple(dict.fromkeys(name.lower() for name in names))
+
+
 def _parse_run(value: Any, path: Path, where: str, query: str | None) -> bool:
     """`run: call` (the default: the macro is run for what it does) or `run: execute` (what the
     macro returns is a statement, and the tool runs it). Whether the case executes."""
@@ -454,7 +467,7 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         path,
         where,
         required=["name", "expect"],
-        optional=["given", "output", "overrides", "setup", "run"],
+        optional=["given", "output", "overrides", "setup", "run", "adapters"],
     )
     name = _parse_name(body["name"], path, where)
     output = _parse_output(body.get("output", Output.EXPRESSION.label), path, where)
@@ -476,6 +489,7 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         )
     setup = _parse_setup(body["setup"], path, where) if "setup" in body else ()
     execute = _parse_run(body.get("run", "call"), path, where, query)
+    adapters = _parse_adapters(body["adapters"], path, where) if "adapters" in body else ()
     return Case(
         name=name,
         arguments=arguments,
@@ -487,4 +501,5 @@ def _parse_case(entry: Any, path: Path, where: str) -> Case:
         query=query,
         inputs=inputs,
         execute=execute,
+        adapters=adapters,
     )

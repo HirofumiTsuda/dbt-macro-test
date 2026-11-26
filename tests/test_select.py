@@ -1,3 +1,4 @@
+from dataclasses import replace
 from pathlib import Path
 
 from dbt_macro_test.engine import RunOutcome
@@ -9,6 +10,7 @@ from dbt_macro_test.spec import (
     MacroSpec,
     SpecFile,
     case_ids,
+    for_adapter,
     select_cases,
     split_isolated,
 )
@@ -155,3 +157,39 @@ def test_the_summary_puts_problems_first_and_leaves_out_zeros() -> None:
         == "1 errored, 2 failed, 4 passed"
     )
     assert RunOutcome(True).summary() == "no cases ran"
+
+
+def for_adapters(name: str, *adapters: str) -> Case:
+    return replace(case(name), adapters=adapters)
+
+
+def test_a_case_without_adapters_is_for_every_adapter_and_one_with_them_only_for_those() -> None:
+    spec = SpecFile(
+        Path("s.yml"),
+        [
+            MacroSpec(
+                "m",
+                [
+                    case("everywhere"),
+                    for_adapters("duck", "duckdb"),
+                    for_adapters("pg", "postgres"),
+                    for_adapters("both", "duckdb", "postgres"),
+                ],
+            ),
+            MacroSpec("n", [for_adapters("only_pg", "postgres")]),
+        ],
+    )
+
+    kept, skipped = for_adapter([spec], "duckdb")
+
+    assert case_ids(kept) == ["m::everywhere", "m::duck", "m::both"]
+    assert skipped == [("m::pg", ("postgres",)), ("n::only_pg", ("postgres",))]
+
+
+def test_a_spec_with_nothing_left_is_dropped() -> None:
+    spec = SpecFile(Path("s.yml"), [MacroSpec("m", [for_adapters("pg", "postgres")])])
+
+    kept, skipped = for_adapter([spec], "duckdb")
+
+    assert kept == []
+    assert skipped == [("m::pg", ("postgres",))]

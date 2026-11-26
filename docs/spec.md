@@ -18,6 +18,7 @@ macros:                       # required: a list
         overrides: {}         # optional: macros, vars and env_vars; see "Overrides"
         setup: {}             # optional: relations made for the case; see "A macro that writes"
         run: call             # optional: call (default) or execute; see "A macro that returns a statement"
+        adapters: [duckdb]    # optional: the adapters this case is for; see "A case for some adapters"
         expect:               # required: exactly one of rows, fixture and error
           rows:
             - {result: 2.5}
@@ -338,6 +339,44 @@ macros:
   part of that query), and a macro that reads a `ref` inside `run_query` or a `statement` block
   does not: dbt answers `Table with name __dbt__cte__orders does not exist`. For such a macro give
   the relation as an argument and make it with `setup`.
+
+## A case for some adapters
+
+What a macro gives can depend on the database: `10 / 4` is `2.5` on duckdb and `2` on Postgres, where
+two integers are divided as integers, and a division of numerics has sixteen decimals there. A case
+can say which adapters it is for:
+
+```yaml
+  - macro: safe_divide
+    cases:
+      - name: integer_division_gives_a_fraction
+        adapters: [duckdb]
+        given:
+          arguments: {numerator: 10, denominator: 4}
+        expect:
+          rows:
+            - {result: 2.5}
+
+      - name: integer_division_drops_the_fraction
+        adapters: [postgres]
+        given:
+          arguments: {numerator: 10, denominator: 4}
+        expect:
+          rows:
+            - {result: 2}
+```
+
+- `adapters` is a list of names of adapters, as the `type` of a target in `profiles.yml` spells them
+  (`duckdb`, `postgres`, `snowflake`, ...), in any case. A case without it is for every adapter.
+- The adapter is that of the target the run uses (`--target`, or the profile's own `target`), read
+  from `profiles.yml` as it is written. A case that is not for it is **skipped, and said so**
+  (`SKIP macro::case: for postgres, not for duckdb`, and `N skipped` in the summary); a skipped
+  case is not a failure and does not change the exit code.
+- If every selected case is for other adapters, the tests could not be run (exit code 2): that is
+  most likely a wrong target.
+- When the adapter cannot be told (the `type`, or the profile's `target`, is a Jinja expression, or
+  `profiles.yml` cannot be found), every case runs and the tool says so.
+- `--list` prints every selected case, also those that would be skipped: it reads no profile.
 
 ## Overrides
 

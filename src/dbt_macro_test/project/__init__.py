@@ -4,6 +4,7 @@ from dbt_macro_test.project.discovery import (
     find_project_root,
     resolve_profiles_dir,
     resolve_project_root,
+    target_adapter,
 )
 from dbt_macro_test.project.fixtures import Fixture, FixtureError, find_fixtures
 from dbt_macro_test.project.generate import (
@@ -34,6 +35,7 @@ __all__ = [
     "model_name",
     "project_config",
     "resolve_profiles_dir",
+    "target_adapter",
     "resolve_project_root",
     "with_absolute_local_paths",
     "write_project",

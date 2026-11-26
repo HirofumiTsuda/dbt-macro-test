@@ -2,6 +2,8 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import NamedTuple
 
+import yaml
+
 
 class ProjectNotFoundError(Exception):
     """No dbt_project.yml was found at or above a path."""
@@ -47,3 +49,34 @@ def resolve_profiles_dir(
     if (root / "profiles.yml").is_file():
         return ProfilesChoice(root, "the project")
     return ProfilesChoice(None, "dbt's default location")
+
+
+def target_adapter(
+    profiles_dir: Path | None,
+    environ: Mapping[str, str],
+    profile: str | None,
+    target: str | None,
+) -> str | None:
+    """The adapter (the `type` of the target in profiles.yml) that a run would use, or None.
+
+    Read from profiles.yml as it is written, where `profiles_dir` is the one that
+    `resolve_profiles_dir` chose (None: DBT_PROFILES_DIR, or dbt's own default). The target is the
+    one asked for, or the profile's own `target`. It is None when the file or the profile is not
+    there, or when the target or its `type` is a Jinja expression, which this does not render.
+    """
+    directory = profiles_dir
+    if directory is None:
+        directory = Path(environ["DBT_PROFILES_DIR"]) if environ.get("DBT_PROFILES_DIR") else None
+    if directory is None:
+        directory = Path.home() / ".dbt"
+    path = directory / "profiles.yml"
+    try:
+        data = yaml.safe_load(path.read_text())
+        entry = data[profile]
+        name = target or entry["target"]
+        adapter = entry["outputs"][name]["type"]
+    except (OSError, yaml.YAMLError, KeyError, TypeError):
+        return None
+    if not isinstance(adapter, str) or "{{" in adapter or "{{" in str(name):
+        return None
+    return adapter.strip().lower()

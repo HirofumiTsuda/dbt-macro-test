@@ -1198,3 +1198,69 @@ def test_the_same_case_without_execute_runs_nothing_and_fails(project: Path) -> 
 
     assert result.exit_code == 1
     assert "1 failed" in result.output
+
+
+ADAPTER_CASES = """macros:
+  - macro: safe_divide
+    cases:
+      - name: for_every_adapter
+        given: {{arguments: {{numerator: 10, denominator: 0}}}}
+        expect: {{rows: [{{result: null}}]}}
+      - name: only_here
+        adapters: [{here}]
+        given: {{arguments: {{numerator: 4, denominator: 2}}}}
+        expect: {{rows: [{{result: 2}}]}}
+      - name: only_elsewhere
+        adapters: [postgres, snowflake]
+        given: {{arguments: {{numerator: 4, denominator: 2}}}}
+        expect: {{rows: [{{result: 3}}]}}      # would fail, if it ran
+"""
+
+
+def test_a_case_for_other_adapters_is_skipped_and_the_summary_says_so(project: Path) -> None:
+    spec = project / "macro_test" / "adapters.yml"
+    spec.write_text(ADAPTER_CASES.format(here="duckdb"))
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 0, result.output
+    assert (
+        "SKIP safe_divide::only_elsewhere: for postgres, snowflake, not for duckdb" in result.output
+    )
+    assert "2 passed, 1 skipped" in result.output
+
+
+def test_a_case_for_this_adapter_only_runs_where_the_target_is_that_adapter(project: Path) -> None:
+    spec = project / "macro_test" / "adapters.yml"
+    spec.write_text(ADAPTER_CASES.format(here="postgres"))
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 0, result.output
+    assert "SKIP safe_divide::only_here: for postgres, not for duckdb" in result.output
+    assert "1 passed, 2 skipped" in result.output
+
+
+def test_when_every_case_is_for_other_adapters_the_tests_could_not_run(project: Path) -> None:
+    spec = project / "macro_test" / "adapters.yml"
+    spec.write_text(
+        "macros:\n  - macro: safe_divide\n    cases:\n      - name: a\n"
+        "        adapters: [snowflake]\n"
+        "        given: {arguments: {numerator: 4, denominator: 2}}\n"
+        "        expect: {rows: [{result: 2}]}\n"
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 2
+    assert "no case is for duckdb" in result.output
+
+
+def test_list_prints_every_case_also_those_for_other_adapters(project: Path) -> None:
+    spec = project / "macro_test" / "adapters.yml"
+    spec.write_text(ADAPTER_CASES.format(here="duckdb"))
+
+    result = CliRunner().invoke(main, ["run", str(spec), "--list"])
+
+    assert result.exit_code == 0
+    assert "safe_divide::only_elsewhere" in result.output.split()

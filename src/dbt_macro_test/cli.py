@@ -33,6 +33,7 @@ from dbt_macro_test.project import (
     macro_directories,
     resolve_profiles_dir,
     resolve_project_root,
+    target_adapter,
 )
 from dbt_macro_test.spec import (
     Case,
@@ -41,6 +42,7 @@ from dbt_macro_test.spec import (
     SpecFile,
     case_id,
     case_ids,
+    for_adapter,
     load_specs,
     select_cases,
     split_isolated,
@@ -138,6 +140,9 @@ def run(
     _check_arguments(spec_files, raw_config, root)
 
     profiles = resolve_profiles_dir(profiles_dir, root, os.environ)
+    spec_files, skipped, adapter = _leave_out_other_adapters(
+        spec_files, raw_config, profiles, target
+    )
     packages_dir = installed_packages_dir(raw_config, root)
     test_dir = path if path.is_dir() else path.parent
     install = (root / "packages.yml").is_file() and packages_dir is None
@@ -163,7 +168,7 @@ def run(
             )
             for i, spec in enumerate(alone)
         ]
-        _report(outcome, verdicts, out_dir if keep_generated else None)
+        _report(outcome, verdicts, (skipped, adapter), out_dir if keep_generated else None)
     passed = outcome.passed and all(v.passed for _, v in verdicts)
     sys.exit(0 if passed else 1)
 
@@ -295,8 +300,41 @@ def _run_alone(
     return case_id(macro_spec.macro, case.name), _judge(case, raw)
 
 
-def _report(outcome: RunOutcome, verdicts: list[tuple[str, Verdict]], kept: Path | None) -> None:
-    """The cases that ran alone, then the summary of all of them, then where the project is."""
+def _leave_out_other_adapters(
+    spec_files: list[SpecFile],
+    raw_config: dict[str, Any],
+    profiles: ProfilesChoice,
+    target: str | None,
+) -> tuple[list[SpecFile], list[tuple[str, tuple[str, ...]]], str | None]:
+    """The specs without the cases that are not for the adapter of the target; those cases, and the
+    adapter. Nothing is read when no case names an adapter."""
+    if not any(c.adapters for f in spec_files for m in f.macros for c in m.cases):
+        return spec_files, [], None
+    adapter = target_adapter(profiles.directory, os.environ, raw_config.get("profile"), target)
+    if adapter is None:
+        click.echo(
+            "Could not tell the adapter of the target from profiles.yml, so every case runs, "
+            "also those that are for some adapters only.",
+            err=True,
+        )
+        return spec_files, [], None
+    kept, skipped = for_adapter(spec_files, adapter)
+    if not kept:
+        raise CouldNotRun(f"no case is for {adapter}: every case names other adapters")
+    return kept, skipped, adapter
+
+
+def _report(
+    outcome: RunOutcome,
+    verdicts: list[tuple[str, Verdict]],
+    left_out: tuple[list[tuple[str, tuple[str, ...]]], str | None],
+    kept: Path | None,
+) -> None:
+    """The cases that ran alone, the cases left out, then the summary of all of them, then where
+    the project is."""
+    skipped, adapter = left_out
+    for identifier, adapters in skipped:
+        click.echo(f"SKIP {identifier}: for {', '.join(adapters)}, not for {adapter}", err=True)
     for identifier, verdict in verdicts:
         word = "PASS" if verdict.passed else "FAIL"
         click.echo(f"{word} {identifier}: {verdict.detail}", err=True)
@@ -304,7 +342,14 @@ def _report(outcome: RunOutcome, verdicts: list[tuple[str, Verdict]], kept: Path
     for _, verdict in verdicts:
         key = "pass" if verdict.passed else "fail"
         counts[key] = counts.get(key, 0) + 1
-    click.echo(f"\n{RunOutcome(passed=True, counts=counts).summary()}", err=True)
+    summary = RunOutcome(passed=True, counts=counts).summary()
+    if skipped:
+        summary = (
+            f"{len(skipped)} skipped"
+            if summary == "no cases ran"
+            else f"{summary}, {len(skipped)} skipped"
+        )
+    click.echo(f"\n{summary}", err=True)
     if kept is not None:
         click.echo(f"Generated project kept at {kept}", err=True)
 

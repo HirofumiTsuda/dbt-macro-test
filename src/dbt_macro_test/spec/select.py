@@ -34,6 +34,29 @@ def select_cases(spec_files: list[SpecFile], patterns: Collection[str]) -> list[
     return selected
 
 
+def for_adapter(
+    spec_files: list[SpecFile], adapter: str
+) -> tuple[list[SpecFile], list[tuple[str, tuple[str, ...]]]]:
+    """The specs without the cases that are not for `adapter`, and those cases as
+    `(macro::case, the adapters it is for)`. A case that names no adapter is for all of them."""
+    kept: list[SpecFile] = []
+    skipped: list[tuple[str, tuple[str, ...]]] = []
+    for spec_file in spec_files:
+        macros = []
+        for macro_spec in spec_file.macros:
+            cases = []
+            for case in macro_spec.cases:
+                if case.adapters and adapter not in case.adapters:
+                    skipped.append((case_id(macro_spec.macro, case.name), case.adapters))
+                else:
+                    cases.append(case)
+            if cases:
+                macros.append(replace(macro_spec, cases=cases))
+        if macros:
+            kept.append(replace(spec_file, macros=macros))
+    return kept, skipped
+
+
 def split_isolated(spec_files: list[SpecFile]) -> tuple[list[SpecFile], list[SpecFile]]:
     """The specs without the cases that must run alone, and one spec per case that must.
 
