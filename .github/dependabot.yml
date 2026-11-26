@@ -1,8 +1,8 @@
 # Keeps what the project pins up to date (#66): the commit SHAs of the actions in the workflows
-# (with their `# vX.Y.Z` comments) and the dependencies in uv.lock. One pull request a week for each
-# kind. Every pull request runs CI, so an update that breaks the suite is seen before it is merged,
-# and each is merged like any other. The prefix puts the issue number in the title, as the project
-# asks of every pull request.
+# (with their `# vX.Y.Z` comments), the dependencies in uv.lock and those of the documentation site
+# in website/package-lock.json. One pull request a week for each kind. Every pull request runs CI,
+# so an update that breaks the suite is seen before it is merged, and each is merged like any other.
+# The prefix puts the issue number in the title, as the project asks of every pull request.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -29,4 +29,17 @@ updates:
       prefix: "[#66]"
     groups:
       python:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /website
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Tokyo
+    commit-message:
+      prefix: "[#66]"
+    groups:
+      docs-site:
         patterns: ["*"]

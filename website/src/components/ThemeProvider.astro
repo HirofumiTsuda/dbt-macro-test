@@ -1,0 +1,22 @@
+{/* Starlight's own, with one change: a visitor who has not chosen a theme gets the dark one, not the
+    one of their system. The theme picker reads what is stored, and takes a missing choice as "auto",
+    so the dark theme is stored on the first visit; "auto" that a visitor picks is stored as an
+    empty string and stays. This is intentionally inlined to avoid FOUC. */}
+<script is:inline>
+	(() => {
+		let storedTheme = null;
+		try {
+			storedTheme = localStorage.getItem('starlight-theme');
+			if (storedTheme === null) {
+				storedTheme = 'dark';
+				localStorage.setItem('starlight-theme', storedTheme);
+			}
+		} catch (e) {
+			// storage may be blocked: the dark theme, for this page only
+			storedTheme = storedTheme || 'dark';
+		}
+		const theme =
+			storedTheme || (window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script>

@@ -13,7 +13,7 @@ which runs in CI, so they work. [The spec reference](spec.md) lists every key.
 | gives text that is not SQL (a code, a slug) | `output: text` | [Text](#text-that-is-not-sql) |
 | stops with an error, or warns | `expect.error`, `expect.warning` | [Errors and warnings](#errors-and-warnings) |
 | reads a `var`, an environment variable, or calls another macro | `overrides` | [Overrides](#vars-environment-variables-and-other-macros) |
-| is a macro of a package | `package.macro` | [A package's macro](#a-package-macro) |
+| is a macro of a package | `package.macro` | [A package's macro](#a-packages-macro) |
 | reads a model or a source (`ref`, `source`) | `given.inputs` | [ref and source](#a-macro-that-reads-a-model-or-a-source) |
 | writes (insert, merge, delete) | `setup`, `expect.query` | [A macro that writes](#a-macro-that-writes) |
 | returns the text of a statement | `run: execute` | [A statement](#a-macro-that-returns-a-statement) |
