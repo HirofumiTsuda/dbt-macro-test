@@ -81,7 +81,7 @@ macros:
 ```console
 $ dbt-macro-test run
 1 of 2 PASS _dmt_safe_divide_safe_divide_division_by_zero_is_null::division_by_zero_is_null  [PASS in 0.08s]
-2 of 2 PASS _dmt_safe_divide_safe_divide_plain_division::plain_division ......... [PASS in 0.02s]
+2 of 2 PASS _dmt_safe_divide_safe_divide_plain_division::plain_division ........ [PASS in 0.02s]
 Done. PASS=2 WARN=0 ERROR=0 SKIP=0 NO-OP=0 REUSED=0 TOTAL=2
 
 2 passed
