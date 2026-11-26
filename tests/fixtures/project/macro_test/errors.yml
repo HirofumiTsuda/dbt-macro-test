@@ -26,7 +26,15 @@ macros:
             message: "guarded: x must not be negative, got -5"
   - macro: bad_cast
     cases:
+      # the wording of a warehouse error is the warehouse's, so a case for each
       - name: the_warehouse_cannot_convert
+        adapters: [duckdb]
         expect:
           error:
             message: Could not convert string 'abc'
+
+      - name: the_warehouse_cannot_convert_on_postgres
+        adapters: [postgres]
+        expect:
+          error:
+            message: invalid input syntax for type integer

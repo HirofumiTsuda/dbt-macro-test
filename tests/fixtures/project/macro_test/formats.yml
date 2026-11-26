@@ -2,6 +2,7 @@ macros:
   - macro: composite_columns
     cases:
       - name: dict_rows
+        adapters: [duckdb]       # struct, list and map literals are duckdb's
         output: columns
         expect:
           rows:
@@ -9,11 +10,13 @@ macros:
               s: {a: 1, b: x}
               m: {k1: 1, k2: 2}
       - name: sql_rows
+        adapters: [duckdb]       # struct, list and map literals are duckdb's
         output: columns
         expect:
           format: sql
           rows: "select [1, 2, 3] as l, {'a': 1, 'b': 'x'} as s, map {'k1': 1, 'k2': 2} as m"
       - name: csv_rows
+        adapters: [duckdb]       # struct, list and map literals are duckdb's
         output: columns
         expect:
           format: csv
