@@ -6,6 +6,14 @@ All notable changes are listed here, newest first. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- On Postgres, the drop of the relations that a case made failed (`Tried to commit transaction ...,
+  but it does not have one open!`) and the tool said that they might be left in the warehouse, which
+  they were not (a temporary table goes with its connection). The drop now runs in a transaction, as
+  dbt's `get_drop_sql` statement, so that the commit has something to commit. Found by running the
+  sample on Postgres (#116).
+
 ## [0.2.0] - 2026-11-26
 
 ### Changed

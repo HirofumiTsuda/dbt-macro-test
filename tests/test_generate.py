@@ -268,8 +268,10 @@ def test_a_project_with_relations_gets_the_macro_that_drops_them_and_names_by_th
 
     files = build_files(RAW, Path("/p"), Path("/p/m"), [spec], run_id="20261126T000000_abc123")
 
-    assert "drop_relation_if_exists" in files["macros/_dmt_drop.sql"]
-    assert "adapter.commit()" in files["macros/_dmt_drop.sql"]
+    macro = files["macros/_dmt_drop.sql"].split("#}", 1)[1]  # the macro, not its comment
+    assert "get_drop_sql(relation)" in macro
+    assert "auto_begin=True" in macro  # a transaction, for the commit to have something to commit
+    assert "adapter.commit()" in macro
     assert yaml.safe_load(files["dbt_project.yml"])["macro-paths"][-1] == "macros"
     model = next(v for k, v in files.items() if k.startswith("models/_dmt_") and k.endswith(".sql"))
     assert '"_dmt_20261126T000000_abc123_0_t"' in model

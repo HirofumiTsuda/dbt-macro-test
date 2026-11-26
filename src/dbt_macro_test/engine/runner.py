@@ -149,7 +149,7 @@ def drop_relations(
     profiles_dir: Path | None = None,
     target: str | None = None,
 ) -> list[str]:
-    """Drop the relations that the cases made, by dbt's own `drop_relation_if_exists`, and return
+    """Drop the relations that the cases made, by dbt's own `get_drop_sql`, and return
     the names of those that could not be dropped (all of them, when dbt could not run).
 
     A temporary relation is gone with its connection on most adapters and stays on some (a table

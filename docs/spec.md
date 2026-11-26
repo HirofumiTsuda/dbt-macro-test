@@ -240,7 +240,7 @@ leaves behind.
   see each other's relations.
 - **They are dropped at the end.** Each model logs the relations it makes, the tool collects them,
   and after the tests it runs one `dbt run-operation`, written into the generated project, that
-  calls dbt's `drop_relation_if_exists` for each and commits. Whether the case passed or failed does
+  runs dbt's `get_drop_sql` for each, in a transaction, and commits. Whether the case passed or failed does
   not matter. It is needed on some adapters and is a no-op on the others (see below). If it fails, the
   tool lists the relations that may be left in the warehouse.
 
