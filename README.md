@@ -3,6 +3,8 @@
 **Test your dbt macros.**
 
 [![CI](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml)
+[![Security](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/security.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/security.yml)
 [![PyPI](https://img.shields.io/pypi/v/dbt-macro-test.svg)](https://pypi.org/project/dbt-macro-test/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
@@ -304,6 +306,14 @@ Markdown of `docs/`, the README and the changelog, which stay plain Markdown tha
 Node (22.23.4 or later; `website/.node-version`); the rest does not. To see it while you edit,
 `cd website && npm ci && npm run dev`. CI builds it (`npm run build`), where a broken link or a
 heading that is not there fails, and publishes it when `main` changes.
+
+Two more workflows look for security problems. **CodeQL** analyses the Python code and the
+workflows, on pull requests, on pushes to `main` and every Monday; its findings are under Security,
+Code scanning. **Security** checks the dependencies for known vulnerabilities, those in `uv.lock`
+with `pip-audit` (pinned in the `security` group) and those of the site with `npm audit`, when a lock
+file changes and every Monday, since an advisory can appear without any change here. A failure of
+the second means a package is to be updated (`uv lock --upgrade-package <name>`). Neither is a
+required check of `main`; the badges at the top of this page show their last run.
 
 The dependencies in `uv.lock` and the pinned actions of the workflows are kept up to date by
 Dependabot (`.github/dependabot.yml`): once a week, one pull request each for the actions, the
