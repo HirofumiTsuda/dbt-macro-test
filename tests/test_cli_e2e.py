@@ -1,5 +1,6 @@
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 from click.testing import CliRunner
@@ -384,6 +385,107 @@ def test_a_package_macro_is_not_overridden_under_its_bare_name(
     spec = write_greet_case_overriding(project_with_packages, "hello")
 
     result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output
+
+
+def run_text(project: Path, macro: str, case: str, rows: list[dict[str, str]], **kw: Any) -> Any:
+    spec = write_spec(
+        project / "macro_test", f"{case}.yml", macro, case, output="text", rows=rows, **kw
+    )
+    return CliRunner().invoke(main, ["run", str(spec)])
+
+
+def test_a_macro_that_returns_text_is_compared_as_text(project: Path) -> None:
+    result = run_text(
+        project, "hello", "greets", [{"result": "Hello, World!"}], arguments={"name": "World"}
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "1 passed" in result.output
+
+
+def test_the_same_text_is_an_error_when_it_is_taken_for_an_expression(project: Path) -> None:
+    spec = write_spec(
+        project / "macro_test",
+        "as_expression.yml",
+        "hello",
+        "greets",
+        arguments={"name": "World"},
+        rows=[{"result": "Hello, World!"}],
+    )
+
+    result = CliRunner().invoke(main, ["run", str(spec)])
+
+    assert result.exit_code == 1
+    assert "1 errored" in result.output
+
+
+def test_a_wrong_text_fails_and_shows_both_texts(project: Path) -> None:
+    result = run_text(
+        project, "hello", "wrong", [{"result": "Hello, there!"}], arguments={"name": "World"}
+    )
+
+    assert result.exit_code == 1
+    assert "1 failed" in result.output
+    assert "Hello, World!" in result.output
+    assert "Hello, there!" in result.output
+
+
+def test_single_quotes_in_the_text_are_escaped_by_dbt(project: Path) -> None:
+    result = run_text(project, "with_quotes", "quoted", [{"result": "it's a 'quoted' word"}])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_blank_space_at_either_end_of_the_text_is_dropped(project: Path) -> None:
+    result = run_text(project, "padded", "trimmed", [{"result": "indented text"}])
+
+    assert result.exit_code == 0, result.output
+
+
+def test_text_that_keeps_its_inner_line_breaks_can_be_expected_whole(project: Path) -> None:
+    statement = "\n".join(
+        [
+            'merge into "main"."orders" as t',
+            'using "main"."orders_new" as s',
+            "on t.id = s.id",
+            "when matched then update set t.value = s.value",
+            "when not matched then insert (id, value) values (s.id, s.value)",
+        ]
+    )
+    relation = "api.Relation.create(schema='main', identifier='{}')"
+
+    result = run_text(
+        project,
+        "upsert_sql",
+        "merges_on_id",
+        [{"result": statement}],
+        arguments={
+            "target": {"type": "jinja", "value": relation.format("orders")},
+            "source": {"type": "jinja", "value": relation.format("orders_new")},
+            "key": "id",
+        },
+    )
+
+    assert result.exit_code == 0, result.output
+
+
+def test_a_changed_statement_is_found_by_the_text(project: Path) -> None:
+    relation = "api.Relation.create(schema='main', identifier='{}')"
+
+    result = run_text(
+        project,
+        "upsert_sql",
+        "wrong_key",
+        [{"result": 'merge into "main"."orders" as t'}],
+        arguments={
+            "target": {"type": "jinja", "value": relation.format("orders")},
+            "source": {"type": "jinja", "value": relation.format("orders_new")},
+            "key": "id",
+        },
+    )
 
     assert result.exit_code == 1
     assert "1 failed" in result.output

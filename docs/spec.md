@@ -13,7 +13,7 @@ macros:                       # required: a list
           arguments:          # by name; see "Arguments"
             numerator: 10
             denominator: 4
-        output: expression    # optional: expression (default), columns or query
+        output: expression    # optional: expression (default), columns, query or text
         overrides: {}         # optional: macros, vars and env_vars; see "Overrides"
         expect:               # required: exactly one of rows, fixture and error
           rows:
@@ -146,6 +146,38 @@ argument is written into the SQL as it is:
             - {id: 1}
             - {id: 2}
 ```
+
+`output: text` is for a macro that returns **text that is not SQL to run**: a plain string
+such as `Hello, World!`, a slug, or the text of a statement (a `merge`, a `grant`). It is not
+evaluated: the macro's text is returned as one string, in the `result` column, and compared as
+text. What the statement would do is not tested, only what it says.
+
+```yaml
+      - name: makes_a_slug             # dbt_utils.slugify, which returns text, not SQL
+        given:
+          arguments:
+            string: "Hello World!"
+        output: text
+        expect:
+          rows:
+            - {result: hello_world}
+```
+
+- A macro that takes a `Relation` or a list is given it as a `type: jinja` argument, as above;
+  the text then holds what the `Relation` writes (`"main"."orders"`, with its schema).
+- **Blank space at either end of the text is dropped**, the indentation of its first line
+  included: it comes from how the macro's block is written, not from what the macro says. The
+  inside is compared as it is, so a statement of several lines is expected with its line breaks and
+  its indentation (a YAML block, `|-`, writes that well).
+- A single quote in the text is escaped by dbt's own macro (`escape_single_quotes`), which each
+  adapter may override; only duckdb has been tried.
+- Without `output: text`, the same macro is taken for a SQL expression, and `Hello, World!` is a
+  syntax error (`select Hello, World! as result`).
+- **A macro that reads the `config` of the model it runs in sees the generated model's, which is
+  empty.** dbt-duckdb's `get_merge_sql`, for example, validates the `merge_*` settings and stops
+  with `MERGE configuration errors`; the macros that take everything as arguments work. The same
+  holds for `this` and `is_incremental()`: they are those of the generated model. Setting a model's
+  `config` for a case is not supported.
 
 A relation that exists only in the project (a model, a source) needs the inputs
 a unit test gives to `ref()` and `source()`, which are not supported yet.

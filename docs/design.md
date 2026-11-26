@@ -91,7 +91,10 @@ unit_tests:
 - **The model has no inputs** (`given: []`): the macro is called inside it, with the arguments
   written as the spec gives them.
 - **`output` says how the macro's text is wrapped** (`spec/output.py`): `expression` is
-  `select <call> as result`, `columns` is `select <call>`, `query` is the call alone.
+  `select <call> as result`, `columns` is `select <call>`, `query` is the call alone. These are
+  evaluated by the warehouse. `text` is not: the model returns the macro's text as one string
+  (`select '<text>' as result`, with the quotes escaped by dbt's `escape_single_quotes` and the
+  blank space at both ends dropped), which dbt's unit test compares as it is.
 - Packages: when the real project's are installed, they are used as they are (`packages-install-path`
   points at them) and `dbt deps` is not run; otherwise `packages.yml` is copied, with relative
   `local:` paths made absolute, and `dbt deps` runs in the temporary directory.
