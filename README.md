@@ -77,7 +77,7 @@ macros:
 **Documentation: <https://hirofumitsuda.github.io/dbt-macro-test/>**: a guide of what to write for
 the macro you have, and every key of a spec.
 
-![dbt-macro-test run on the sample project: the cases are listed and 26 pass; after one expected row of a merge is changed, that case fails and dbt's diff of the rows is shown](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/demo.gif)
+![dbt-macro-test run on the sample project: the cases are listed and 28 pass; after one expected row of a merge is changed, that case fails and dbt's diff of the rows is shown](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/demo.gif)
 
 This project is independent and is not affiliated with or endorsed by dbt Labs. "dbt" is a
 trademark of dbt Labs, Inc.

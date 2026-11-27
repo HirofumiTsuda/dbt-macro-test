@@ -35,3 +35,14 @@
 {% macro merge_orders_sql(target, source) %}
     {{ return(dbt.get_merge_sql(target, source, 'id', adapter.get_columns_in_relation(target))) }}
 {% endmacro %}
+
+{# Writes, for a post-hook: records the full name of the table it runs for (`this`) and the time into
+   a registry, with a merge. A hook that calls it is dbt's, so what is tested is what the macro does. #}
+{% macro record_update(registry) %}
+    {% do run_query(
+        "merge into " ~ registry ~ " as t using (select '" ~ this ~ "' as full_name) as s "
+        ~ "on t.full_name = s.full_name "
+        ~ "when matched then update set updated_at = current_timestamp "
+        ~ "when not matched then insert (full_name, updated_at) values (s.full_name, current_timestamp)"
+    ) %}
+{% endmacro %}
