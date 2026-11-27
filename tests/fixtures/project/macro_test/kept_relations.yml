@@ -1,0 +1,20 @@
+# A relation that is not temporary (#127): the tool makes it with `create_table_as(false, ...)`, the
+# macro writes to it, and the tool drops it afterwards (#128). On Postgres in CI this is the case
+# that makes a table which stays in the warehouse until it is dropped.
+macros:
+  - macro: append_row
+    cases:
+      - name: writes_to_a_relation_that_is_not_temporary
+        setup:
+          relations:
+            target:
+              temporary: false
+              sql: select 1 as id, 'old' as value
+        given:
+          arguments:
+            target: {type: jinja, value: relations.target}
+        expect:
+          query: select id, value from {{ relations.target }} order by id
+          rows:
+            - {id: 1, value: old}
+            - {id: 9, value: new}

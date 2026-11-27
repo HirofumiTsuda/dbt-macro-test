@@ -10,5 +10,5 @@ fixture_project:
       user: "{{ env_var('DMT_PG_USER', 'dmt') }}"
       password: "{{ env_var('DMT_PG_PASSWORD', 'dmt') }}"
       dbname: "{{ env_var('DMT_PG_DB', 'dmt') }}"
-      schema: dmt_fixture
+      schema: public       # a relation that is not temporary needs the schema to exist (#127)
       threads: 1
