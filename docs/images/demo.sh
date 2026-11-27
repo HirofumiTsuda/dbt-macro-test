@@ -11,10 +11,10 @@ say "dbt-macro-test run 2>&1 | tail -n 4"
 dbt-macro-test run 2>&1 | tail -n 4
 sleep 2.5
 clear
-say "sed -i 's/{result: 2.5}/{result: 2.0}/' macro_test/expressions.yml"
-sed -i 's/{result: 2.5}/{result: 2.0}/' macro_test/expressions.yml
+say "sed -i '27s/shipped/open/' macro_test/relations.yml"
+sed -i '27s/shipped/open/' macro_test/relations.yml
 sleep 0.6
-say "dbt-macro-test run --select safe_divide::divides"
-dbt-macro-test run --select safe_divide::divides
-echo "exit code: $?"
+say "dbt-macro-test run --select upsert_orders 2>&1 | tail -n 18 | grep -v 'compiled code'"
+dbt-macro-test run --select upsert_orders 2>&1 | tail -n 18 | grep -v 'compiled code'
+echo "exit code: ${PIPESTATUS[0]}"
 sleep 2.5

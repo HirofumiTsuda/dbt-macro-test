@@ -2,11 +2,12 @@
 
 `demo.gif` is the animation at the top of the README. It is a recording of a real session, not a
 drawing: `demo.sh` types each command on the screen and then runs it for real, in a copy of
-[`dev/sample_project`](../../dev/sample_project) (26 cases). It lists the cases (`run --list`), runs
-all of them and shows the end of the output (`26 passed`), then changes one expected value with
-`sed` and runs that case, which fails with dbt's diff (`run --select safe_divide::divides`). The
-long names of the cases would wrap in a terminal this wide, so the whole run is not shown line by
-line.
+[`dev/sample_project`](../../dev/sample_project) (27 cases, 26 of which run on duckdb). It lists the
+cases (`run --list`), runs all of them and shows the end of the output (`26 passed, 1 skipped`), then
+changes one expected row of a `merge` with `sed` and runs that case, which fails with dbt's diff of the
+rows (`run --select upsert_orders`). The long names of the cases would wrap in a terminal this wide,
+so the whole run is not shown line by line: the first run shows its last lines, and the second
+leaves out the line that names the compiled file.
 
 | File | What it is |
 |---|---|
@@ -19,7 +20,7 @@ line.
 | `make_social_preview.py` | Makes `social-preview.png` (`uvx --with pillow python docs/images/make_social_preview.py`) |
 
 `social-preview.png` is not drawn either: the terminal in it is cut out of the last frame of
-`demo.gif` (the error with dbt's diff, and the summary with the exit code, two pieces of the real
+`demo.gif` (the diff of the rows, and the summary with the exit code, two pieces of the real
 frame, with nothing typed or edited); only the tagline and the install command next to it are text.
 When `demo.gif` is made again, make this image again too.
 
