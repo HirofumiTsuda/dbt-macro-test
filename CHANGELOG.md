@@ -10,6 +10,12 @@ All notable changes are listed here, newest first. The format follows
      what it is for. It is the head of the GitHub release, which the release workflow makes from
      this entry (.github/scripts/release_notes.py), and a release without it does not get built. -->
 
+## [0.3.0] - 2026-11-27
+
+Run on Postgres, and write a case for each database where a macro gives a different result. The
+sample project and the project of the tests run on Postgres in CI, a case can be limited to some
+adapters with `adapters`, and the drop of the relations of a case no longer fails on Postgres.
+
 ### Changed
 
 - The sample project runs on Postgres as well as duckdb (a CI job runs it against a Postgres
