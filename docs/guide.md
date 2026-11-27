@@ -16,6 +16,7 @@ which runs in CI, so they work. [The spec reference](spec.md) lists every key.
 | is a macro of a package | `package.macro` | [A package's macro](#a-packages-macro) |
 | reads a model or a source (`ref`, `source`) | `given.inputs` | [ref and source](#a-macro-that-reads-a-model-or-a-source) |
 | writes (insert, merge, delete) | `setup`, `expect.query` | [A macro that writes](#a-macro-that-writes) |
+| is called by a hook and reads `this` | `{{ this }}` in `setup` and `expect.query` | [A hook's macro](#a-macro-that-a-hook-calls-and-reads-this) |
 | returns the text of a statement | `run: execute` | [A statement](#a-macro-that-returns-a-statement) |
 | gives something else on another database | `adapters` | [One database](#a-case-for-one-database) |
 
@@ -263,6 +264,68 @@ It drops them at the end. **This writes to the target's schema**: use a local or
 ```
 
 A macro that only **reads** a relation is the same without a `query`: its value is compared.
+
+### A macro that a hook calls, and reads `this`
+
+A `post-hook` often calls a macro that reads `this` (the full name of the table it runs for) and
+writes to another table with a `merge`: a record of which tables were updated, and when. **That the
+hook calls the macro is dbt's**, and is not tested here; what is tested is what the macro does.
+
+In your project the hook is a line of a model (run on duckdb with `dbt run`, twice: the table is
+recorded, and the second run only moves its time):
+
+```sql
+-- models/orders.sql
+{{ config(post_hook="{{ record_update(ref('table_registry')) }}") }}
+
+select * from {{ ref('stg_orders') }} where status <> 'cancelled'
+```
+
+(`table_registry` is a model that keeps its rows between runs, `materialized='incremental'`, with
+`full_name` and `updated_at`.) The macro is the one below.
+
+In a case `this` is the generated model's, which is enough for that, with two things to do:
+
+- **Its name has the id of the run in it, so it cannot be written in the rows.** `{{ this }}` is
+  rendered in `setup.relations.<name>.sql` and in `expect.query`, so give a row for it there, and
+  compare with it in the query.
+- **Neither can a time.** Give a row an old time, and check afterwards that the time is later.
+
+```yaml
+  - macro: record_update
+    cases:
+      - name: records_a_table_that_is_new
+        setup:
+          relations:
+            registry:
+              sql: select 'other' as full_name, timestamp '2000-01-01' as updated_at
+        given:
+          arguments:
+            registry: {type: jinja, value: relations.registry}
+        expect:
+          query: >
+            select full_name = '{{ this }}' as is_this, updated_at > timestamp '2020-01-01' as is_recent
+            from {{ relations.registry }} order by is_this
+          rows:
+            - {is_this: false, is_recent: false}   # another table is left as it was
+            - {is_this: true, is_recent: true}
+      - name: updates_a_table_that_is_there_and_does_not_add_it_twice
+        setup:
+          relations:
+            registry:
+              sql: select '{{ this }}' as full_name, timestamp '2000-01-01' as updated_at
+        given:
+          arguments:
+            registry: {type: jinja, value: relations.registry}
+        expect:
+          query: select count(*) as n, bool_and(updated_at > timestamp '2020-01-01') as is_recent from {{ relations.registry }}
+          rows:
+            - {n: 1, is_recent: true}
+```
+
+The first case is the `when not matched` side of the `merge` and the second is the `when matched`
+side. A macro that reads the `config` of the model, rather than `this`, sees the generated model's
+too (see [the spec](spec.md#a-macro-that-writes)).
 
 ## A macro that returns a statement
 

@@ -27,6 +27,39 @@ macros:
             - {id: 2, status: shipped}
             - {id: 3, status: open}
 
+  - macro: record_update                           # a macro that reads `this`, for a post-hook
+    cases:
+      - name: records_a_table_that_is_new
+        setup:
+          relations:
+            registry:
+              sql: select 'other' as full_name, timestamp '2000-01-01' as updated_at
+        given:
+          arguments:
+            registry: {type: jinja, value: relations.registry}
+        expect:
+          # `this` is the generated model's, and its name has the id of the run in it: it is
+          # compared in the query, not written in the rows. Nor can the time be: the row has an
+          # old time, and the case checks that the new one is later
+          query: >
+            select full_name = '{{ this }}' as is_this, updated_at > timestamp '2020-01-01' as is_recent
+            from {{ relations.registry }} order by is_this
+          rows:
+            - {is_this: false, is_recent: false}   # another table is left as it was
+            - {is_this: true, is_recent: true}
+      - name: updates_a_table_that_is_there_and_does_not_add_it_twice
+        setup:
+          relations:
+            registry:
+              sql: select '{{ this }}' as full_name, timestamp '2000-01-01' as updated_at
+        given:
+          arguments:
+            registry: {type: jinja, value: relations.registry}
+        expect:
+          query: select count(*) as n, bool_and(updated_at > timestamp '2020-01-01') as is_recent from {{ relations.registry }}
+          rows:
+            - {n: 1, is_recent: true}
+
   - macro: remove_cancelled
     cases:
       - name: keeps_the_orders_that_are_not_cancelled

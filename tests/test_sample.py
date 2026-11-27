@@ -11,7 +11,7 @@ from dbt_macro_test.spec import load_specs
 pytestmark = pytest.mark.e2e
 
 SAMPLE = Path(__file__).parent.parent / "dev" / "sample_project"
-CASES = 27  # change it with the sample: the test fails when a case is added or taken away
+CASES = 29  # change it with the sample: the test fails when a case is added or taken away
 SKIPPED = 1  # on duckdb: the case that is for Postgres only
 HELPERS = {"tax_rate"}  # macros that are there to be overridden, with no case of their own
 

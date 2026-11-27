@@ -2,8 +2,8 @@
 
 `demo.gif` is the animation at the top of the README. It is a recording of a real session, not a
 drawing: `demo.sh` types each command on the screen and then runs it for real, in a copy of
-[`dev/sample_project`](../../dev/sample_project) (27 cases, 26 of which run on duckdb). It lists the
-cases (`run --list`), runs all of them and shows the end of the output (`26 passed, 1 skipped`), then
+[`dev/sample_project`](../../dev/sample_project) (29 cases, 28 of which run on duckdb). It lists the
+cases (`run --list`), runs all of them and shows the end of the output (`28 passed, 1 skipped`), then
 changes one expected row of a `merge` with `sed` and runs that case, which fails with dbt's diff of the
 rows (`run --select upsert_orders`). The long names of the cases would wrap in a terminal this wide,
 so the whole run is not shown line by line: the first run shows its last lines, and the second
