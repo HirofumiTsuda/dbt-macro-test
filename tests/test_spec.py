@@ -208,6 +208,37 @@ def test_a_case_can_make_relations_and_give_a_query_to_compare(tmp_path: Path) -
     assert case.runs_own_sql is True
 
 
+def test_a_relation_is_temporary_unless_it_says_it_is_not(tmp_path: Path) -> None:
+    text = setup_case(
+        "        setup:\n          relations:\n"
+        "            a: {rows: [{id: 1}]}\n"
+        "            b: {rows: [{id: 1}], temporary: false}\n"
+        "            c: {sql: select 1, temporary: true}\n"
+        "            d: {sql: select 1, temporary: false}\n"
+    )
+
+    (case,) = load_spec_file(write(tmp_path, text)).macros[0].cases
+
+    assert [(r.name, r.temporary) for r in case.setup] == [
+        ("a", True),
+        ("b", False),
+        ("c", True),
+        ("d", False),
+    ]
+
+
+@pytest.mark.parametrize("value", ["maybe", "0", "1", "null", "[true]", "'false'"])
+def test_temporary_must_be_true_or_false(tmp_path: Path, value: str) -> None:
+    text = setup_case(
+        f"        setup: {{relations: {{t: {{sql: select 1, temporary: {value}}}}}}}\n"
+    )
+
+    with pytest.raises(SpecError) as error:
+        load_spec_file(write(tmp_path, text))
+
+    assert "temporary: must be true or false" in str(error.value)
+
+
 def test_a_case_without_sql_of_its_own_is_as_before(tmp_path: Path) -> None:
     (case,) = load_spec_file(write(tmp_path, case_with("{rows: [{r: 1}]}"))).macros[0].cases
 

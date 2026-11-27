@@ -14,14 +14,17 @@ _COLUMN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 @dataclass(frozen=True)
 class SetupRelation:
-    """A relation that a case needs before the macro runs, made by the tool as a temporary one.
+    """A relation that a case needs before the macro runs, made by the tool.
 
-    It is filled by `rows` (a list of mappings) or by `sql` (a select), the author's own.
+    It is filled by `rows` (a list of mappings) or by `sql` (a select), the author's own. It is
+    temporary unless `temporary` is false: what each is is the adapter's to say (dbt's
+    `create_table_as` takes the boolean, and the adapter chooses the kind of relation).
     """
 
     name: str
     rows: tuple[dict[str, Any], ...] | None = None
     sql: str | None = None
+    temporary: bool = True
 
     def select_sql(self) -> str:
         """The select that fills the relation. It is rendered as Jinja when the model is, so it

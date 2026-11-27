@@ -224,7 +224,8 @@ leaves behind.
   (a list of mappings with the same columns in each, of numbers, booleans, null and strings; the
   warehouse chooses the types) or by `sql`, a select of your own, which may name the relations made
   before it, `{{ relations.<name> }}`. Several relations can be made, in the order written.
-- **The tool makes them, as temporary relations**, with dbt's own `make_temp_relation` and
+- **The tool makes them, as temporary relations** (unless a relation says `temporary: false`, see
+  below), with dbt's own `make_temp_relation` and
   `create_table_as(temporary, ...)`, which every adapter implements for itself: the tool has no code
   for any adapter, and the statements it runs are only those, with no DDL of yours. A relation is
   handed to the macro as an argument, `{type: jinja, value: relations.<name>}`: it is dbt's
@@ -266,6 +267,37 @@ Not tried: any adapter other than duckdb and Postgres (the table is the code, no
 names say when the relations were made, so a leftover can be found and removed by hand). A macro that
 reads the `config`, `this` or `is_incremental()` of the model it runs in sees the generated model's,
 as for `output: text`.
+
+### A relation that is not temporary
+
+`temporary` on a relation is `true` unless it says otherwise. `temporary: false` is for an adapter
+whose temporary relation is not what the case needs: a view that a macro cannot write to (Spark,
+Databricks, in the table above), or a temporary table that does not last to the next statement (dbt
+Fusion with duckdb).
+
+```yaml
+        setup:
+          relations:
+            orders:
+              temporary: false
+              rows:
+                - {id: 1, status: open}
+```
+
+- **The tool passes the boolean to dbt's `create_table_as(false, ...)`, and no more.** What kind of
+  table that makes is the adapter's to say, from the config of the model (`transient` or permanent on
+  Snowflake, `file_format` on Spark and Databricks); the tool does not set that config, and does not
+  name kinds of table. The relation is named with the database and the schema of the target.
+- **The database and the schema of the target have to exist.** The tool makes the relation, not the
+  schema (`dbt test` does not make it, as `dbt run` does); a temporary relation needs neither. When
+  the schema is not there, the adapter's error is what shows.
+- It is dropped at the end like the others, and stays in the warehouse if the run is killed before
+  that (#105).
+- **Tried:** duckdb, in the tests of the tool, and Postgres, by hand, for one case (the relation is
+  made in the schema that exists, and dropped). On Spark (`dbt-spark` 1.11.1, `method: session`) a case
+  that writes with an `INSERT` passes, but the drop at the end fails, since dbt's `get_drop_sql` says
+  `cascade` and Spark refuses it: the relations are left and the tool says so (#128). Not tried on any
+  other adapter.
 
 ### A macro that returns a statement
 

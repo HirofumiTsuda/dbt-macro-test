@@ -63,11 +63,14 @@ class Case:
         """The throwaway model of the case: what dbt compares with the expected rows.
 
         A case without SQL of its own wraps the call by its `output`. A case with a `setup` makes
-        its relations first, as **temporary** ones, with dbt's own `make_temp_relation` and
-        `create_table_as`, which each adapter implements for itself, so nothing here is adapter
-        specific. They are made when dbt renders the model at run time (`run_query`), in the
-        connection dbt gives the test, and their names are logged so that the tool can drop them
-        afterwards (`__dmt_relation__`): a temporary relation is not temporary on every adapter.
+        its relations first, as **temporary** ones unless a relation says `temporary: false`, with
+        dbt's own `make_temp_relation` and `create_table_as`, which each adapter implements for
+        itself, so nothing here is adapter specific. A relation that is not temporary is named
+        with the database and the schema of the target, since `make_temp_relation` of some adapters
+        (Postgres) drops them. They are made when dbt renders the model at run time (`run_query`),
+        in the connection dbt gives the test, and their names are logged so that the tool can drop
+        them afterwards (`__dmt_relation__`): a temporary relation is not temporary on every
+        adapter.
         With a `query` the macro is then run for what it does, its text dropped, and the model is
         the query; without one, the macro's output is the model, as before. With `execute` the text
         the macro returns is a statement, and it is run (`run_query`) instead of dropped.
@@ -80,16 +83,18 @@ class Case:
             lines.append("{% set relations = namespace() %}")
             for relation in self.setup:
                 identifier = to_jinja_literal(f"{relation_prefix}{relation.name}")
-                lines.append(
-                    f"{{% set relations.{relation.name} = make_temp_relation("
+                created = (
                     f"api.Relation.create(database=target.get('database'), "
-                    f"schema=target.schema, identifier={identifier})) %}}"
+                    f"schema=target.schema, identifier={identifier})"
                 )
+                made = f"make_temp_relation({created})" if relation.temporary else created
+                lines.append(f"{{% set relations.{relation.name} = {made} %}}")
         lines.append("{% if execute %}")
         for relation in self.setup:
             ref = f"relations.{relation.name}"
             lines.append(f"{{% set _dmt_sql %}}{relation.select_sql()}{{% endset %}}")
-            lines.append(f"{{% do run_query(create_table_as(true, {ref}, _dmt_sql)) %}}")
+            flag = "true" if relation.temporary else "false"
+            lines.append(f"{{% do run_query(create_table_as({flag}, {ref}, _dmt_sql)) %}}")
             lines.append(
                 f'{{% do log("{RELATION_MARK}" ~ tojson({{'
                 f'"database": {ref}.database, "schema": {ref}.schema, '
@@ -393,7 +398,8 @@ def _parse_run(value: Any, path: Path, where: str, query: str | None) -> bool:
 
 
 def _parse_setup(value: Any, path: Path, where: str) -> tuple[SetupRelation, ...]:
-    """The relations a case needs: `setup: {relations: {name: {rows: [...]} | {sql: ...}}}`."""
+    """The relations a case needs: `setup: {relations: {name: {rows: [...]} | {sql: ...}}}`, each
+    with an optional `temporary` (true by default)."""
     here = f"{where}.setup"
     setup = _mapping(value, path, here, required=["relations"])
     entries = _mapping(setup["relations"], path, f"{here}.relations", any_keys=True)
@@ -404,14 +410,17 @@ def _parse_setup(value: Any, path: Path, where: str) -> tuple[SetupRelation, ...
         if not isinstance(name, str) or not _IDENTIFIER.match(name):
             raise _fail(path, f"{here}.relations", f"{name!r} is not a relation name")
         spot = f"{here}.relations.{name}"
-        body = _mapping(entry, path, spot, optional=["rows", "sql"])
+        body = _mapping(entry, path, spot, optional=["rows", "sql", "temporary"])
         if sum(key in body for key in ("rows", "sql")) != 1:
             raise _fail(path, spot, "needs exactly one of 'rows' and 'sql'")
+        temporary = body.get("temporary", True)
+        if not isinstance(temporary, bool):
+            raise _fail(path, f"{spot}.temporary", "must be true or false")
         if "sql" in body:
             sql = body["sql"]
             if not isinstance(sql, str) or not sql.strip():
                 raise _fail(path, f"{spot}.sql", "must be a select, as text")
-            relations.append(SetupRelation(name, sql=sql))
+            relations.append(SetupRelation(name, sql=sql, temporary=temporary))
             continue
         rows = _list(body["rows"], path, f"{spot}.rows")
         if not rows:
@@ -422,7 +431,7 @@ def _parse_setup(value: Any, path: Path, where: str) -> tuple[SetupRelation, ...
             rows_to_select(rows)
         except (ValueError, TypeError) as e:
             raise _fail(path, f"{spot}.rows", str(e)) from e
-        relations.append(SetupRelation(name, rows=tuple(rows)))
+        relations.append(SetupRelation(name, rows=tuple(rows), temporary=temporary))
     return tuple(relations)
 
 

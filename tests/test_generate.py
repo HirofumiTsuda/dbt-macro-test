@@ -229,6 +229,35 @@ def test_a_case_with_relations_and_a_query_makes_them_runs_the_macro_and_ends_wi
     ]
 
 
+def test_a_relation_that_is_not_temporary_is_made_with_false_and_without_make_temp_relation() -> (
+    None
+):
+    case = sql_case(
+        setup=(
+            SetupRelation("kept", rows=({"id": 1},), temporary=False),
+            SetupRelation("scratch", sql="select 2 as id"),
+        ),
+        query="select * from {{ relations.kept }}",
+    )
+
+    lines = case.model_sql("m()", "_dmt_r_0_").splitlines()
+
+    # not make_temp_relation: that of Postgres drops the schema and the database of the relation
+    assert lines[1] == (
+        "{% set relations.kept = api.Relation.create("
+        "database=target.get('database'), schema=target.schema, "
+        'identifier="_dmt_r_0_kept") %}'
+    )
+    assert lines[2].startswith("{% set relations.scratch = make_temp_relation(")
+    assert "{% do run_query(create_table_as(false, relations.kept, _dmt_sql)) %}" in lines
+    assert "{% do run_query(create_table_as(true, relations.scratch, _dmt_sql)) %}" in lines
+    # it is still logged, so that the tool drops it
+    assert any(
+        line.startswith('{% do log("__dmt_relation__"') and "relations.kept" in line
+        for line in lines
+    )
+
+
 def test_a_relation_named_like_a_method_of_a_dict_is_still_the_relation() -> None:
     sql = sql_case(setup=(SetupRelation("copy", sql="select 1"),), query="select 1").model_sql(
         "m()"
