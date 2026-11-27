@@ -271,6 +271,18 @@ A `post-hook` often calls a macro that reads `this` (the full name of the table 
 writes to another table with a `merge`: a record of which tables were updated, and when. **That the
 hook calls the macro is dbt's**, and is not tested here; what is tested is what the macro does.
 
+In your project the hook is a line of a model (run on duckdb with `dbt run`, twice: the table is
+recorded, and the second run only moves its time):
+
+```sql
+-- models/orders.sql
+{{ config(post_hook="{{ record_update(ref('table_registry')) }}") }}
+select 1 as id
+```
+
+(`table_registry` is a model that keeps its rows between runs, `materialized='incremental'`, with
+`full_name` and `updated_at`.) The macro is the one below.
+
 In a case `this` is the generated model's, which is enough for that, with two things to do:
 
 - **Its name has the id of the run in it, so it cannot be written in the rows.** `{{ this }}` is
