@@ -93,7 +93,7 @@ class Case:
         for relation in self.setup:
             ref = f"relations.{relation.name}"
             lines.append(f"{{% set _dmt_sql %}}{relation.select_sql()}{{% endset %}}")
-            flag = "true" if relation.temporary else "false"
+            flag = to_jinja_literal(relation.temporary)
             lines.append(f"{{% do run_query(create_table_as({flag}, {ref}, _dmt_sql)) %}}")
             lines.append(
                 f'{{% do log("{RELATION_MARK}" ~ tojson({{'
