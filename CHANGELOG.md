@@ -16,7 +16,7 @@ All notable changes are listed here, newest first. The format follows
   `create_table_as(false, ...)` instead of as a temporary one, for an adapter whose temporary
   relation is not what the case needs (on Spark and Databricks it is a view, which a macro cannot
   write to). The kind of table is the adapter's to say; the database and the schema of the target
-  have to exist. Tried on duckdb and Postgres, and by hand on Spark. #127.
+  have to exist. Tried on duckdb and Postgres, and by hand on Spark (an `INSERT` and a `MERGE`, on Delta). #127.
 
 ### Fixed
 

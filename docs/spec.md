@@ -296,8 +296,12 @@ Fusion with duckdb).
   that (#105).
 - **Tried:** duckdb and Postgres, in the tests of the tool and in CI (the relation is made in the
   schema that exists, and dropped), and Spark (`dbt-spark` 1.11.1, `method: session`), by hand, for
-  one case that writes with an `INSERT`: it passes and the relation is dropped. Not tried on any
-  other adapter.
+  one case that writes with an `INSERT` and one with a `MERGE` (`upsert_orders`, two relations that
+  are not temporary): both pass and the relations are dropped. A `MERGE` needs a table that takes
+  it, which a plain Spark table does not: Delta, with the profile saying so (`spark.jars.packages`,
+  `spark.sql.extensions`, `spark.sql.catalog.spark_catalog` and `spark.sql.sources.default: delta`,
+  for the tables made without a `file_format`). The `file_format` of the project's `models:` does
+  not reach the relations of a case. Not tried on any other adapter.
 
 ### A macro that returns a statement
 
