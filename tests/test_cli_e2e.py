@@ -757,6 +757,49 @@ def test_the_tool_says_which_relations_it_could_not_drop(
     assert "could not be dropped and may be left in the warehouse: _dmt_x_0_target" in result.output
 
 
+KEPT = {**TARGET, "temporary": False}
+
+
+def test_a_relation_that_is_not_temporary_is_a_table_that_the_macro_can_read(
+    project: Path, tmp_path: Path
+) -> None:
+    database = file_database(project, tmp_path)
+
+    result = run_relations(
+        project,
+        "kept",
+        "row_count",
+        setup={"target": KEPT},
+        arguments={"table": relation("target")},
+        rows=[{"result": 2}],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert made_by_the_tool(database) == []
+
+
+def test_a_relation_that_is_not_temporary_is_in_the_warehouse_until_it_is_dropped(
+    project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dbt_macro_test.engine import runner
+
+    database = file_database(project, tmp_path)
+    monkeypatch.setattr(runner, "drop_relations", lambda *a, **k: [])
+
+    result = run_relations(
+        project,
+        "kept_without_drop",
+        "row_count",
+        setup={"target": KEPT, "scratch": TARGET},
+        arguments={"table": relation("target")},
+        rows=[{"result": 2}],
+    )
+
+    assert result.exit_code == 0, result.output
+    # the relation that is not temporary is there; the temporary one went with its connection
+    assert len(made_by_the_tool(database)) == 1
+
+
 def test_run_passes_for_macros_that_return_a_whole_query(project: Path) -> None:
     result = CliRunner().invoke(main, ["run", str(project / "macro_test" / "queries.yml")])
 
