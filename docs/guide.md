@@ -277,7 +277,8 @@ recorded, and the second run only moves its time):
 ```sql
 -- models/orders.sql
 {{ config(post_hook="{{ record_update(ref('table_registry')) }}") }}
-select 1 as id
+
+select * from {{ ref('stg_orders') }} where status <> 'cancelled'
 ```
 
 (`table_registry` is a model that keeps its rows between runs, `materialized='incremental'`, with
