@@ -1,6 +1,6 @@
 # dbt-macro-test
 
-**Test your dbt macros.**
+**Test your dbt macros, including the ones that write: `merge`, `insert`, `delete`.**
 
 [![CI](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml)
@@ -19,6 +19,10 @@ the macro you have, and every key of a spec.
 
 ![dbt-macro-test run on the sample project: the 26 cases are listed and pass; after one expected value is changed, that case fails and dbt's diff is shown](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/demo.gif)
 
+- **A macro that writes can be tested.** Give it a table, run it, and check the rows it leaves
+  behind: `merge`, `insert` and `delete` have been run on duckdb, Postgres and Spark (see
+  [what has been run](#what-has-been-run)). The tables of a case are dropped afterwards, whether it
+  passed or failed, and a failure shows dbt's diff of the rows.
 - **A macro can be tested like a function.** Arguments in, rows out. dbt's native unit tests cover
   models only ([dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547)), so there was
   no way to call a macro with given inputs and assert on what it gives.
@@ -29,12 +33,60 @@ the macro you have, and every key of a spec.
 - **Made for CI.** Exit code 0, 1 or 2, `--select`, Linux and Windows, dbt-core 1.8 and later, and
   an example for GitHub Actions below.
 
-**Status: alpha.** The interface may still change. It has been run on duckdb and on Postgres (the
-sample project and the project of the tests, in CI) and on no other adapter (see
+**Status: alpha.** The interface may still change. It has been run on duckdb, Postgres and Spark
+(see [what has been run](#what-has-been-run)) and on no other adapter (see
 [What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
 
 This project is independent and is not affiliated with or endorsed by dbt Labs. "dbt" is a
 trademark of dbt Labs, Inc.
+
+## A macro that writes
+
+A macro that runs `merge`, `insert` or `delete` is tested by the table it leaves. The tool makes the
+relations of the case (`setup.relations`), calls the macro with them, and compares the rows that
+`expect.query` selects afterwards:
+
+```sql
+-- macros/orders.sql
+{% macro upsert_orders(target, source) %}
+    {% do run_query(
+        "merge into " ~ target ~ " as t using " ~ source ~ " as s on t.id = s.id "
+        ~ "when matched then update set status = s.status "
+        ~ "when not matched then insert (id, status) values (s.id, s.status)"
+    ) %}
+{% endmacro %}
+```
+
+```yaml
+# macro_test/orders.yml
+macros:
+  - macro: upsert_orders
+    cases:
+      - name: updates_the_changed_orders_and_adds_the_new_ones
+        setup:
+          relations:
+            target:
+              rows:
+                - {id: 1, status: open}
+                - {id: 2, status: open}
+            source:
+              sql: select 2 as id, 'shipped' as status union all select 3, 'open'
+        given:
+          arguments:
+            target: {type: jinja, value: relations.target}
+            source: {type: jinja, value: relations.source}
+        expect:
+          query: select * from {{ relations.target }}
+          rows:
+            - {id: 1, status: open}
+            - {id: 2, status: shipped}
+            - {id: 3, status: open}
+```
+
+**A macro that writes writes to the target of your profile**: run these cases on a local or a
+throwaway one (the relations are the tool's, but what the macro does is yours). Read
+[the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)
+first.
 
 ## Quick start
 
@@ -266,22 +318,44 @@ jobs:
   *version* was changed is not noticed: run `dbt deps` before `dbt-macro-test run`, as the example
   does.
 
+## What has been run
+
+Only what is in this table has been run; the rest is not known to work. **CI** is the sample project
+and the project of the tests, on every pull request; **by hand** is run once, and is not in CI.
+
+| | duckdb | Postgres 17 | Spark (Delta) |
+|---|---|---|---|
+| A value, columns, a `select`, text | CI | CI | |
+| An error, a warning | CI | CI | |
+| `overrides` of macros, `vars` and environment variables | CI | CI | |
+| `merge` | CI | CI | CI |
+| `insert` | CI | CI | CI |
+| `delete` | CI | CI | |
+| `update` | by hand | | |
+| DDL (`create`, `alter`, `drop`) | by hand | | |
+| The text of a statement (`run: execute`) | CI | CI | |
+
+Spark runs in a session of its own, on Delta (a `merge` needs a table that takes it), and its
+profile has to say so; see [the spec](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-relation-that-is-not-temporary).
+A table that a macro makes under a name of its own is not dropped by the tool
+([#134](https://github.com/HirofumiTsuda/dbt-macro-test/issues/134)).
+
 ## What is not supported
 
 Each of these has an issue.
 
 - Asserting on a macro's return value without a database
   ([#11](https://github.com/HirofumiTsuda/dbt-macro-test/issues/11)).
-- The setup of a case from a csv or a file; any macro that writes, on an adapter other than duckdb
-  ([#30](https://github.com/HirofumiTsuda/dbt-macro-test/issues/30)).
+- The setup of a case from a csv or a file
+  ([#104](https://github.com/HirofumiTsuda/dbt-macro-test/issues/104)).
 - A `ref` of a model of a package, `ref('package', 'model')`, as an input
   ([#9](https://github.com/HirofumiTsuda/dbt-macro-test/issues/9)).
 - Generic tests ([#13](https://github.com/HirofumiTsuda/dbt-macro-test/issues/13)), and asserting on
   which macros were called ([#16](https://github.com/HirofumiTsuda/dbt-macro-test/issues/16)).
 - dbt Fusion ([#23](https://github.com/HirofumiTsuda/dbt-macro-test/issues/23)); the tool runs
   dbt-core in-process.
-- Adapters other than duckdb and Postgres: the tool leaves the work to dbt, so others may well work,
-  but none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
+- Adapters other than duckdb, Postgres and Spark: the tool leaves the work to dbt, so others may
+  well work, but none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
 
 The tool runs dbt through `dbtRunner`, dbt's programmatic entry point. It also uses three
 things that are not a documented interface: the project file, read with
