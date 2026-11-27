@@ -723,6 +723,33 @@ def test_relations_that_an_adapter_does_not_make_temporary_are_dropped_after_the
     assert made_by_the_tool(database) == []
 
 
+# stands for Spark: `get_drop_sql` says something its SQL refuses (`cascade`), while the adapter's
+# own `drop_relation` says what it takes
+NO_CASCADE = """{% macro duckdb__drop_table(relation) -%}
+  drop table if exists {{ relation.include(database=false) }} cascade garbage
+{%- endmacro %}
+{% macro duckdb__drop_relation(relation) -%}
+  {% call statement('drop_relation', auto_begin=False) -%}
+    drop table if exists {{ relation.include(database=false) }}
+  {%- endcall %}
+{% endmacro %}
+"""
+
+
+def test_relations_are_dropped_by_the_adapters_own_drop_relation(
+    project: Path, tmp_path: Path
+) -> None:
+    database = persistent_project(project, tmp_path)
+    (project / "macros" / "no_cascade.sql").write_text(NO_CASCADE)
+
+    passing, failing = two_cases(project)
+
+    assert passing.exit_code == 0, passing.output
+    assert failing.exit_code == 1
+    assert "could not be dropped" not in passing.output
+    assert made_by_the_tool(database) == []
+
+
 def test_the_simulation_of_such_an_adapter_does_leave_relations_when_nothing_drops_them(
     project: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -16,8 +16,13 @@ All notable changes are listed here, newest first. The format follows
   `create_table_as(false, ...)` instead of as a temporary one, for an adapter whose temporary
   relation is not what the case needs (on Spark and Databricks it is a view, which a macro cannot
   write to). The kind of table is the adapter's to say; the database and the schema of the target
-  have to exist. Tried on duckdb and, by hand, on Postgres; on Spark an `INSERT` passes, but the
-  drop at the end still fails (#128). #127.
+  have to exist. Tried on duckdb and Postgres, and by hand on Spark (an `INSERT` and a `MERGE`, on Delta). #127.
+
+### Fixed
+
+- The relations of a case that are not temporary are dropped on Spark: the tool dropped them with
+  `get_drop_sql`, whose `cascade` Spark refuses, and now with dbt's `drop_relation`, which the
+  adapter overrides. Still the same on duckdb and Postgres. #128.
 
 ## [0.3.0] - 2026-11-27
 

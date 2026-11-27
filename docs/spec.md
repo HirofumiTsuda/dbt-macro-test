@@ -242,8 +242,9 @@ leaves behind.
   see each other's relations.
 - **They are dropped at the end.** Each model logs the relations it makes, the tool collects them,
   and after the tests it runs one `dbt run-operation`, written into the generated project, that
-  runs dbt's `get_drop_sql` for each, in a transaction, and commits. Whether the case passed or failed does
-  not matter. It is needed on some adapters and is a no-op on the others (see below). If it fails, the
+  runs dbt's `drop_relation` for each (which an adapter overrides when its SQL does not take what
+  `get_drop_sql` says: Spark refuses `cascade`), in a transaction, and commits. Whether the case
+  passed or failed does not matter. It is needed on some adapters and is a no-op on the others (see below). If it fails, the
   tool lists the relations that may be left in the warehouse.
 
 > **It is a real write, and nothing asks first.** `dbt-macro-test run` makes the relations of every
@@ -293,11 +294,14 @@ Fusion with duckdb).
   the schema is not there, the adapter's error is what shows.
 - It is dropped at the end like the others, and stays in the warehouse if the run is killed before
   that (#105).
-- **Tried:** duckdb, in the tests of the tool, and Postgres, by hand, for one case (the relation is
-  made in the schema that exists, and dropped). On Spark (`dbt-spark` 1.11.1, `method: session`) a case
-  that writes with an `INSERT` passes, but the drop at the end fails, since dbt's `get_drop_sql` says
-  `cascade` and Spark refuses it: the relations are left and the tool says so (#128). Not tried on any
-  other adapter.
+- **Tried:** duckdb and Postgres, in the tests of the tool and in CI (the relation is made in the
+  schema that exists, and dropped), and Spark (`dbt-spark` 1.11.1, `method: session`), by hand, for
+  one case that writes with an `INSERT` and one with a `MERGE` (`upsert_orders`, two relations that
+  are not temporary): both pass and the relations are dropped. A `MERGE` needs a table that takes
+  it, which a plain Spark table does not: Delta, with the profile saying so (`spark.jars.packages`,
+  `spark.sql.extensions`, `spark.sql.catalog.spark_catalog` and `spark.sql.sources.default: delta`,
+  for the tables made without a `file_format`). The `file_format` of the project's `models:` does
+  not reach the relations of a case. Not tried on any other adapter.
 
 ### A macro that returns a statement
 
