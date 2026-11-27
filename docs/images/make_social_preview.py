@@ -35,8 +35,8 @@ def font(name: str, size: int) -> ImageFont.FreeTypeFont:
 
 def terminal_excerpt(scale: float) -> Image.Image:
     frame = last_frame()
-    error_and_diff = frame.crop((0, 342, 620, 502))
-    summary = frame.crop((0, 633, 620, 676))  # without the cursor under the last line
+    error_and_diff = frame.crop((0, 126, 620, 247))
+    summary = frame.crop((0, 362, 620, 401))  # without the cursor under the last line
     gap = 16
     excerpt = Image.new("RGB", (620, error_and_diff.height + gap + summary.height), PANEL)
     excerpt.paste(error_and_diff, (0, 0))

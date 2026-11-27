@@ -1,37 +1,83 @@
 # dbt-macro-test
 
-**Test your dbt macros.**
+**Test dbt macros that merge, insert or delete: give them tables, check the rows they leave. Plain YAML, run by dbt.**
 
 [![CI](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/ci.yml)
-[![CodeQL](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml)
-[![Security](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/security.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/security.yml)
 [![PyPI](https://img.shields.io/pypi/v/dbt-macro-test.svg)](https://pypi.org/project/dbt-macro-test/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)
 ![dbt-core 1.8+](https://img.shields.io/badge/dbt--core-1.8%2B-orange.svg)
 
-Call a macro with the arguments you choose, say what it should return, and run it on your machine
-or in CI. A test is a few lines of YAML; the tool turns each case into one of dbt's own unit tests,
-so the result, and the diff when it fails, are dbt's.
+Write a test as a few lines of YAML: the arguments in, the rows out. The tool turns each case into
+one of dbt's own unit tests and has dbt run it on your warehouse, so the comparison, and the diff when
+it fails, are dbt's. A macro that writes is given tables, called, and judged by the rows it leaves:
+
+```sql
+-- macros/orders.sql
+{% macro upsert_orders(target, source) %}
+    {% do run_query(
+        "merge into " ~ target ~ " as t using " ~ source ~ " as s on t.id = s.id "
+        ~ "when matched then update set status = s.status "
+        ~ "when not matched then insert (id, status) values (s.id, s.status)"
+    ) %}
+{% endmacro %}
+```
+
+```yaml
+# macro_test/orders.yml
+macros:
+  - macro: upsert_orders
+    cases:
+      - name: updates_the_changed_orders_and_adds_the_new_ones
+        setup:
+          relations:
+            target:
+              rows:
+                - {id: 1, status: open}
+                - {id: 2, status: open}
+            source:
+              sql: select 2 as id, 'shipped' as status union all select 3, 'open'
+        given:
+          arguments:
+            # the relations that the tool made for this case, handed to the macro
+            target: {type: jinja, value: relations.target}
+            source: {type: jinja, value: relations.source}
+        expect:
+          query: select * from {{ relations.target }}
+          rows:
+            - {id: 1, status: open}
+            - {id: 2, status: shipped}
+            - {id: 3, status: open}
+```
+
+> **A macro that writes, writes to the target of your profile.** Run its cases on a local or a
+> throwaway target (duckdb is enough). The tool drops the relations it makes for a case, whether it
+> passed or failed; a table that your macro makes under a name of its own is not dropped
+> ([#134](https://github.com/HirofumiTsuda/dbt-macro-test/issues/134)). Read
+> [the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)
+> first. `merge into ... using` needs Postgres 15 or later; this one ran on duckdb, Postgres 17 and
+> Spark (Delta) in CI.
+
+- **Writes:** `merge`, `insert` and `delete` run in CI on duckdb and Postgres 17; `merge` and `insert`
+  on Spark (Delta). `update` and DDL (`create`, `alter`, `drop`) were run by hand on duckdb only (see
+  [what has been run](#what-has-been-run)). A failure shows dbt's diff of the rows.
+- **Returns:** a value, columns, a `select`, text, an error or a warning, with `overrides` of macros,
+  `vars` and environment variables for a case. dbt's native unit tests cover models only
+  ([dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547)), so there is no native way to
+  call a macro with given inputs and assert on what it gives.
+- **dbt does the running.** Your project's profile, adapter, `vars`, `dispatch` and packages are
+  used; the comparison and the output of a failure are dbt's own, not a second implementation.
+- **Made for CI.** Exit code 0, 1 or 2, `--select`, Linux and Windows, dbt-core 1.8 and later, and
+  an example for GitHub Actions below.
+
+**Status: alpha.** The interface may still change. It has been run on duckdb, Postgres and Spark
+(see [what has been run](#what-has-been-run)) and on no other adapter (see
+[What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
 
 **Documentation: <https://hirofumitsuda.github.io/dbt-macro-test/>**: a guide of what to write for
 the macro you have, and every key of a spec.
 
-![dbt-macro-test run on the sample project: the 26 cases are listed and pass; after one expected value is changed, that case fails and dbt's diff is shown](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/demo.gif)
-
-- **A macro can be tested like a function.** Arguments in, rows out. dbt's native unit tests cover
-  models only ([dbt-labs/dbt#10547](https://github.com/dbt-labs/dbt/issues/10547)), so there was
-  no way to call a macro with given inputs and assert on what it gives.
-- **dbt does the running.** Your project's profile, adapter, `vars`, `dispatch` and packages are
-  used; the comparison and the output of a failure are dbt's own, not a second implementation.
-- **More than rows.** The expected rows written out, as csv or SQL, or in a file; the error or the
-  warning that a macro raises; `overrides` of macros, `vars` and environment variables for a case.
-- **Made for CI.** Exit code 0, 1 or 2, `--select`, Linux and Windows, dbt-core 1.8 and later, and
-  an example for GitHub Actions below.
-
-**Status: alpha.** The interface may still change. It has been run on duckdb and on Postgres (the
-sample project and the project of the tests, in CI) and on no other adapter (see
-[What is not supported](https://github.com/HirofumiTsuda/dbt-macro-test#what-is-not-supported)).
+![dbt-macro-test run on the sample project: the cases are listed and 26 pass; after one expected row of a merge is changed, that case fails and dbt's diff of the rows is shown](https://raw.githubusercontent.com/HirofumiTsuda/dbt-macro-test/main/docs/images/demo.gif)
 
 This project is independent and is not affiliated with or endorsed by dbt Labs. "dbt" is a
 trademark of dbt Labs, Inc.
@@ -144,7 +190,7 @@ models, so this is what people do today, and where each puts its tests:
 | Approach | How | Where the tests live |
 |---|---|---|
 | A model that calls the macro, with a native unit test of it, by hand ([a write-up](https://www.dumky.net/posts/unit-testing-dbt-macros-a-workaround-for-dbts-unit-testing-limitations/), March 2025) | the macro's output is the model's, and dbt compares it | your project's `models/`, so in its manifest, next to the real models |
-| [`dbt-unittest`](https://github.com/yu-iskw/dbt-unittest) | assertion macros (`assert_equals`, ...), run with `dbt run-operation` | your project's `macros/` |
+| [`dbt-unittest`](https://github.com/yu-iskw/dbt-unittest) | assertion macros (`assert_equals`, ...), run with `dbt run-operation`; on one `merge` on duckdb (0.5.0), a failed `assert_list_equals` says only `Lists are not equal.`, with no rows, and the tables the test made stay in the warehouse | your project's `macros/` |
 | A dedicated testing project, as dbt packages do (`dbt-utils` has an [`integration_tests`](https://github.com/dbt-labs/dbt-utils/tree/main/integration_tests) project; see [the dbt blog](https://docs.getdbt.com/blog/unit-testing-dbt-packages)) | seeds, models and tests of its own | a second project, written and kept by hand |
 | [`pytest-dbt-core`](https://github.com/godatadriven/pytest-dbt-core) | a pytest plugin; its docs test a macro through a fixture | Python files |
 | [`dbt-unit-testing`](https://github.com/EqualExperts/dbt-unit-testing) | tests models, not macros; it said in January 2024 that it had no plans to support macros | |
@@ -266,22 +312,44 @@ jobs:
   *version* was changed is not noticed: run `dbt deps` before `dbt-macro-test run`, as the example
   does.
 
+## What has been run
+
+Only what is in this table has been run; the rest is not known to work. **CI** is the sample project
+and the project of the tests, on every pull request; **by hand** is run once, and is not in CI.
+
+| | duckdb | Postgres 17 | Spark (Delta) |
+|---|---|---|---|
+| A value, columns, a `select`, text | CI | CI | |
+| An error, a warning | CI | CI | |
+| `overrides` of macros, `vars` and environment variables | CI | CI | |
+| `merge` | CI | CI | CI |
+| `insert` | CI | CI | CI |
+| `delete` | CI | CI | |
+| `update` | by hand | | |
+| DDL (`create`, `alter`, `drop`) | by hand | | |
+| The text of a statement (`run: execute`) | CI | CI | |
+
+Spark runs in a session of its own, on Delta (a `merge` needs a table that takes it), and its
+profile has to say so; see [the spec](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-relation-that-is-not-temporary).
+A table that a macro makes under a name of its own is not dropped by the tool
+([#134](https://github.com/HirofumiTsuda/dbt-macro-test/issues/134)).
+
 ## What is not supported
 
 Each of these has an issue.
 
 - Asserting on a macro's return value without a database
   ([#11](https://github.com/HirofumiTsuda/dbt-macro-test/issues/11)).
-- The setup of a case from a csv or a file; any macro that writes, on an adapter other than duckdb
-  ([#30](https://github.com/HirofumiTsuda/dbt-macro-test/issues/30)).
+- The setup of a case from a csv or a file
+  ([#104](https://github.com/HirofumiTsuda/dbt-macro-test/issues/104)).
 - A `ref` of a model of a package, `ref('package', 'model')`, as an input
   ([#9](https://github.com/HirofumiTsuda/dbt-macro-test/issues/9)).
 - Generic tests ([#13](https://github.com/HirofumiTsuda/dbt-macro-test/issues/13)), and asserting on
   which macros were called ([#16](https://github.com/HirofumiTsuda/dbt-macro-test/issues/16)).
 - dbt Fusion ([#23](https://github.com/HirofumiTsuda/dbt-macro-test/issues/23)); the tool runs
   dbt-core in-process.
-- Adapters other than duckdb and Postgres: the tool leaves the work to dbt, so others may well work,
-  but none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
+- Adapters other than duckdb, Postgres and Spark: the tool leaves the work to dbt, so others may
+  well work, but none has been run ([#14](https://github.com/HirofumiTsuda/dbt-macro-test/issues/14)).
 
 The tool runs dbt through `dbtRunner`, dbt's programmatic entry point. It also uses three
 things that are not a documented interface: the project file, read with
@@ -312,13 +380,16 @@ Node (22.23.4 or later; `website/.node-version`); the rest does not. To see it w
 `cd website && npm ci && npm run dev`. CI builds it (`npm run build`), where a broken link or a
 heading that is not there fails, and publishes it when `main` changes.
 
+[![CodeQL](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/codeql.yml)
+[![Security](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/security.yml/badge.svg)](https://github.com/HirofumiTsuda/dbt-macro-test/actions/workflows/security.yml)
+
 Two more workflows look for security problems. **CodeQL** analyses the Python code and the
 workflows, on pull requests, on pushes to `main` and every Monday; its findings are under Security,
 Code scanning. **Security** checks the dependencies for known vulnerabilities, those in `uv.lock`
 with `pip-audit` (pinned in the `security` group) and those of the site with `npm audit`, when a lock
 file changes and every Monday, since an advisory can appear without any change here. A failure of
 the second means a package is to be updated (`uv lock --upgrade-package <name>`). Neither is a
-required check of `main`; the badges at the top of this page show their last run.
+required check of `main`; the badges above show their last run.
 
 The dependencies in `uv.lock` and the pinned actions of the workflows are kept up to date by
 Dependabot (`.github/dependabot.yml`): once a week, one pull request each for the actions, the
