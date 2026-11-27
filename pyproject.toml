@@ -54,6 +54,10 @@ dev = [
 postgres = [
     "dbt-postgres>=1.11.0",
 ]
+spark = [
+    "dbt-spark[session]>=1.11.0",
+    "delta-spark>=4.4.1",
+]
 security = [
     "pip-audit>=2.10.1",
 ]

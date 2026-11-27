@@ -1,0 +1,44 @@
+# Relations that are not temporary (#127) on Spark, with Delta (#132). On Spark a temporary
+# relation is a view, which a macro cannot write to, so a macro that writes needs these. A MERGE
+# needs a table that takes it, which a plain Spark table does not: the profile makes the tables
+# Delta (`spark.sql.sources.default`). The tool drops the relations afterwards (#128), and CI
+# fails when one is left.
+macros:
+  - macro: append_row
+    cases:
+      - name: writes_with_an_insert
+        setup:
+          relations:
+            target:
+              temporary: false
+              sql: select 1 as id, 'old' as value
+        given:
+          arguments:
+            target: {type: jinja, value: relations.target}
+        expect:
+          query: select id, value from {{ relations.target }} order by id
+          rows:
+            - {id: 1, value: old}
+            - {id: 9, value: new}
+
+  - macro: upsert_orders
+    cases:
+      - name: updates_and_adds_with_a_merge
+        setup:
+          relations:
+            target:
+              temporary: false
+              sql: select 1 as id, 'a' as value union all select 2, 'b'
+            source:
+              temporary: false
+              sql: select 2 as id, 'B' as value union all select 3, 'c'
+        given:
+          arguments:
+            target: {type: jinja, value: relations.target}
+            source: {type: jinja, value: relations.source}
+        expect:
+          query: select id, value from {{ relations.target }} order by id
+          rows:
+            - {id: 1, value: a}
+            - {id: 2, value: B}
+            - {id: 3, value: c}

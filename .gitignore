@@ -21,3 +21,8 @@ website/dist/
 website/.astro/
 website/src/content/docs/
 website/public/images/
+
+# Spark session (tests/fixtures/spark_project)
+derby.log
+metastore_db/
+spark-warehouse/

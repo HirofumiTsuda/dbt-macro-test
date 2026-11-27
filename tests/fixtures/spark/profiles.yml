@@ -1,0 +1,28 @@
+# The Spark project of the tests (tests/fixtures/spark_project) on Spark with Delta (#132), for
+# `--profiles-dir`: a session of its own (`method: session`), with no cluster. The session fetches
+# the Delta library from Maven when it starts. A MERGE needs a table that takes it, so the tables
+# are Delta, also those that are made without a `file_format`. The tables are in
+# `DMT_SPARK_WAREHOUSE`, which CI looks into after the run for a relation that was left.
+#
+# Locally, with Java 17 or 21:
+#
+#   uv sync --group spark
+#   uv run dbt-macro-test run --project-dir tests/fixtures/spark_project --profiles-dir tests/fixtures/spark
+#   ls /tmp/dmt-spark-warehouse    # nothing that starts with _dmt_ is left
+#
+# The session leaves `derby.log` and `metastore_db/` in the directory it is run from.
+spark_project:
+  target: spark
+  outputs:
+    spark:
+      type: spark
+      method: session
+      schema: default
+      host: NA
+      threads: 1
+      server_side_parameters:
+        spark.sql.warehouse.dir: "{{ env_var('DMT_SPARK_WAREHOUSE', '/tmp/dmt-spark-warehouse') }}"
+        spark.jars.packages: io.delta:delta-spark_2.13:4.4.1
+        spark.sql.extensions: io.delta.sql.DeltaSparkSessionExtension
+        spark.sql.catalog.spark_catalog: org.apache.spark.sql.delta.catalog.DeltaCatalog
+        spark.sql.sources.default: delta
