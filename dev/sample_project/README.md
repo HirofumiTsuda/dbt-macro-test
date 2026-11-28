@@ -9,7 +9,7 @@ A small dbt project of a shop, with duckdb, and a spec in `macro_test/` for each
 ```bash
 pip install dbt-duckdb dbt-macro-test       # in a checkout: uv run dbt-macro-test, as below
 cd dev/sample_project
-dbt-macro-test run                           # 29 cases: 28 run and pass, 1 is for Postgres
+dbt-macro-test run                           # 35 cases: 34 run and pass, 1 is for Postgres
 dbt-macro-test run --list                    # the cases, as macro::case
 dbt-macro-test run --select "price_*"        # some of them
 ```
@@ -40,6 +40,7 @@ dbt-macro-test run --profiles-dir postgres
 | `text.yml` | `order_code`, `slug` | a macro that returns text that is not SQL (`output: text`) |
 | `errors_and_warnings.yml` | `quantity`, `status` | an error that a macro raises (`expect.error`) and a warning it gives (`expect.warning`), which run in a run of dbt of their own |
 | `overrides.yml` | `greeting`, `price_with_tax` | what a macro reads from its surroundings, set for one case: a var, an environment variable, another macro |
+| `schemas.yml` | `generate_schema_name`, `is_running_in_ci` | a macro that dbt itself calls, overridden in the project: the name of a schema (`output: text`, a node that is `null`), by a var, a macro that a case gives the value of, and an environment variable. The target cannot be overridden in a case |
 | `formats.yml` + `fixtures/` | `all_orders` | the expected rows as csv, as a select, and in a fixture file |
 | `relations.yml` | `upsert_orders`, `record_update`, `remove_cancelled`, `archive_cancelled`, `order_total`, `order_columns`, `merge_orders_sql` | a macro that **writes** to a relation (a merge, a delete, an insert in a `statement` block, a statement the macro only returns, `run: execute`) or reads one (the value of a query, the columns through `adapter`): the tool makes the relations of the case, from rows or a select, as temporary ones, and drops them afterwards; what is compared is the rows a query returns. **These run SQL in the warehouse of the target**: see the warning in the spec reference |
 | `inputs.yml` | `orders_with_status`, `paid_total` | a macro that calls `ref()` or `source()` itself: the rows it is to see are given under `given.inputs` (as `rows` or a `select`); the tool makes a stand-in for the node and reads no real data |

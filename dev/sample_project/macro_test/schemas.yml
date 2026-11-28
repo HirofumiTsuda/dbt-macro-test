@@ -1,0 +1,58 @@
+# The macros that name things, which dbt itself calls: `generate_schema_name` is dbt's own macro,
+# overridden in the project. The schema is text, so `output: text`; a node that is not needed is
+# `null`. The target cannot be overridden in a case, so what the macro tells apart is an
+# environment variable, or a macro (`is_running_in_ci`) that a case gives the value of.
+macros:
+  - macro: generate_schema_name
+    cases:
+      - name: a_model_with_no_schema_of_its_own_goes_to_the_base_schema
+        given:
+          arguments: {custom_schema_name: null, node: null}
+        output: text
+        expect:
+          rows:
+            - {result: analytics}
+
+      - name: a_custom_schema_gets_the_name_of_the_base_schema_in_front
+        given:
+          arguments: {custom_schema_name: marts, node: null}
+        output: text
+        expect:
+          rows:
+            - {result: analytics_marts}
+
+      - name: the_base_schema_is_a_var
+        given:
+          arguments: {custom_schema_name: marts, node: null}
+        overrides:
+          vars: {base_schema: shop}
+        output: text
+        expect:
+          rows:
+            - {result: shop_marts}
+
+      - name: in_ci_the_schema_is_one_of_the_run_s_own
+        given:
+          arguments: {custom_schema_name: marts, node: null}
+        overrides:
+          macros: {is_running_in_ci: true}
+        output: text
+        expect:
+          rows:
+            - {result: ci_marts}
+
+  - macro: is_running_in_ci
+    cases:
+      - name: is_false_when_ci_is_not_true       # CI sets it to true, so the case sets it too
+        overrides:
+          env_vars: {CI: "false"}
+        expect:
+          rows:
+            - {result: false}
+
+      - name: is_true_when_ci_is_true
+        overrides:
+          env_vars: {CI: "true"}
+        expect:
+          rows:
+            - {result: true}
