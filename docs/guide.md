@@ -203,6 +203,7 @@ not need is `null`.
         given:
           arguments: {custom_schema_name: marts, node: null}
         overrides:
+          vars: {base_schema: analytics}
           env_vars: {CI: "false"}    # CI sets it to true, so a case that is not for CI sets it
         output: text
         expect:
