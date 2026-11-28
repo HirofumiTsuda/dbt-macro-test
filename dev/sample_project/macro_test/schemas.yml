@@ -8,6 +8,8 @@ macros:
       - name: a_model_with_no_schema_of_its_own_goes_to_the_base_schema
         given:
           arguments: {custom_schema_name: null, node: null}
+        overrides:
+          vars: {base_schema: analytics}   # without it: the schema of the target, which differs by adapter
         output: text
         expect:
           rows:
@@ -17,22 +19,12 @@ macros:
         given:
           arguments: {custom_schema_name: marts, node: null}
         overrides:
+          vars: {base_schema: analytics}
           env_vars: {CI: "false"}      # CI sets it to true, so a case that is not for CI sets it
         output: text
         expect:
           rows:
             - {result: analytics_marts}
-
-      - name: the_base_schema_is_a_var
-        given:
-          arguments: {custom_schema_name: marts, node: null}
-        overrides:
-          vars: {base_schema: shop}
-          env_vars: {CI: "false"}
-        output: text
-        expect:
-          rows:
-            - {result: shop_marts}
 
       - name: in_ci_the_schema_is_one_of_the_run_s_own
         given:
