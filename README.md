@@ -58,8 +58,7 @@ macros:
 > first. `merge into ... using` needs Postgres 15 or later; this one ran on duckdb, Postgres 17 and
 > Spark (Delta) in CI.
 
-- **Writes:** `merge`, `insert` and `delete` run in CI on duckdb and Postgres 17; `merge` and `insert`
-  on Spark (Delta). `update` and DDL (`create`, `alter`, `drop`) were run by hand on duckdb only (see
+- **Writes:** `merge`, `insert` and `delete` run in CI on duckdb, Postgres 17 and Spark (Delta). `update` and DDL (`create`, `alter`, `drop`) were run by hand on duckdb only (see
   [what has been run](#what-has-been-run)). A failure shows dbt's diff of the rows.
 - **Returns:** a value, columns, a `select`, text, an error or a warning, with `overrides` of macros,
   `vars` and environment variables for a case. dbt's native unit tests cover models only
@@ -338,15 +337,15 @@ and the project of the tests, on every pull request; **by hand** is run once, an
 
 | | duckdb | Postgres 17 | Spark (Delta) |
 |---|---|---|---|
-| A value, columns, a `select`, text | CI | CI | |
-| An error, a warning | CI | CI | |
-| `overrides` of macros, `vars` and environment variables | CI | CI | |
+| A value, columns, a `select`, text | CI | CI | CI |
+| An error, a warning | CI | CI | CI |
+| `overrides` of macros, `vars` and environment variables | CI | CI | CI |
 | `merge` | CI | CI | CI |
 | `insert` | CI | CI | CI |
-| `delete` | CI | CI | |
+| `delete` | CI | CI | CI |
 | `update` | by hand | | |
 | DDL (`create`, `alter`, `drop`) | by hand | | |
-| The text of a statement (`run: execute`) | CI | CI | |
+| The text of a statement (`run: execute`) | CI | CI | CI |
 
 Spark runs in a session of its own, on Delta (a `merge` needs a table that takes it), and its
 profile has to say so; see [the spec](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-relation-that-is-not-temporary).
