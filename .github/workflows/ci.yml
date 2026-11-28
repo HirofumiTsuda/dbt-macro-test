@@ -147,6 +147,11 @@ jobs:
       - if: needs.changes.outputs.code != 'false'
         run: uv sync --locked --group postgres
 
+      # the schema of the sample's profile: a relation that is not temporary (#142) is made in it, and
+      # the tool makes the relation, not the schema
+      - if: needs.changes.outputs.code != 'false'
+        run: PGPASSWORD=dmt psql -h localhost -U dmt -d dmt -c 'create schema if not exists dmt_sample'
+
       # the connection is the defaults of dev/sample_project/postgres/profiles.yml, which are those of
       # the container above
       - if: needs.changes.outputs.code != 'false'
@@ -158,8 +163,8 @@ jobs:
 
   spark:
     # A project on Spark with Delta (#132): relations that are not temporary (#127), written by an
-    # INSERT and by a MERGE, and dropped afterwards (#128). A session of its own, no cluster; the
-    # Delta library is fetched from Maven when it starts. It is not a required check of main until
+    # INSERT and by a MERGE, and dropped afterwards (#128); and the sample project, all of it (#142).
+    # A session of its own, no cluster; the Delta library is fetched from Maven when it starts. It is not a required check of main until
     # the time and the stability have been seen.
     name: spark (Delta)
     needs: changes
@@ -181,8 +186,11 @@ jobs:
       - if: needs.changes.outputs.code != 'false'
         run: uv run dbt-macro-test run --project-dir tests/fixtures/spark_project --profiles-dir tests/fixtures/spark
 
-      # the tool drops the relations of the cases; one that is left is a failure of the drop, which
-      # the run does not say by its exit code
+      - if: needs.changes.outputs.code != 'false'
+        run: uv run dbt-macro-test run --project-dir dev/sample_project --profiles-dir dev/sample_project/spark
+
+      # the tool drops the relations of the cases of both runs; one that is left is a failure of the
+      # drop, which the run does not say by its exit code
       - if: needs.changes.outputs.code != 'false'
         run: |
           left=$(ls "$DMT_SPARK_WAREHOUSE" 2>/dev/null | grep '^_dmt_' || true)

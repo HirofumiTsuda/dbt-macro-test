@@ -2,6 +2,11 @@
 # (`setup.relations`, from rows or from a select), as temporary ones, and drops them afterwards;
 # the macro is given them as arguments: `{type: jinja, value: relations.<name>}`.
 #
+# A relation that a macro writes to says `temporary: false`: on Spark a temporary relation is a view,
+# which cannot be written to (#127), so these specs run on Spark too (#142). On the other adapters
+# the tool makes a table, as for any `temporary: false`, and drops it afterwards; a relation that is
+# only read stays temporary.
+#
 # These cases run SQL in the warehouse of the target: a macro that named a real table itself
 # would write it. Here duckdb is in memory. Run specs like these on a local or throwaway target.
 macros:
@@ -11,6 +16,7 @@ macros:
         setup:
           relations:
             target:
+              temporary: false           # a macro writes to it: see the top of the file
               rows:
                 - {id: 1, status: open}
                 - {id: 2, status: open}
@@ -33,6 +39,7 @@ macros:
         setup:
           relations:
             registry:
+              temporary: false
               sql: select 'other' as full_name, timestamp '2000-01-01' as updated_at
         given:
           arguments:
@@ -51,6 +58,7 @@ macros:
         setup:
           relations:
             registry:
+              temporary: false
               sql: select '{{ this }}' as full_name, timestamp '2000-01-01' as updated_at
         given:
           arguments:
@@ -66,6 +74,7 @@ macros:
         setup:
           relations:
             orders:
+              temporary: false
               rows:
                 - {id: 1, status: open}
                 - {id: 2, status: cancelled}
@@ -105,6 +114,7 @@ macros:
                 - {id: 1, status: open}
                 - {id: 2, status: cancelled}
             archive:
+              temporary: false
               sql: select 0 as id, 'cancelled' as status where false   # an empty relation, of the same columns
         given:
           arguments:
@@ -138,6 +148,7 @@ macros:
         setup:
           relations:
             target:
+              temporary: false
               rows:
                 - {id: 1, status: open}
                 - {id: 2, status: open}

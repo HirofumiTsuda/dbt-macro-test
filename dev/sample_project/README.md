@@ -25,10 +25,23 @@ The case for duckdb is skipped then, and every other one runs and passes.
 docker run -d --name dmt-pg -e POSTGRES_USER=dmt -e POSTGRES_PASSWORD=dmt -e POSTGRES_DB=dmt \
   -p 5432:5432 postgres:17
 pip install dbt-postgres
+docker exec dmt-pg psql -U dmt -d dmt -c 'create schema dmt_sample'   # the tool makes no schema
 dbt-macro-test run --profiles-dir postgres
 ```
+
+The schema is for the relations that are not temporary (the cases that write, in `relations.yml`):
+the tool makes the relation in the schema of the profile, and does not make the schema.
  dbt writes `target/`, `logs/` and
 `.user.yml` next to it, which `.gitignore` leaves out.
+
+**On Spark** (what CI does too, #142): the profile in `spark/` is a session of its own on Delta, with no
+cluster, so Java 17 or 21 is all it needs. The case for duckdb and the one for Postgres are skipped,
+and every other one runs and passes.
+
+```bash
+uv sync --group spark        # in a checkout: dbt-spark[session] and delta-spark
+uv run dbt-macro-test run --project-dir dev/sample_project --profiles-dir dev/sample_project/spark
+```
 
 ## What each file shows
 
