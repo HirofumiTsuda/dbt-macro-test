@@ -190,6 +190,40 @@ What a macro reads from its surroundings can be set for one case:
 Without `overrides`, a case sees the `vars` and the macros of your project. See
 [Overrides](spec.md#overrides).
 
+## A macro that dbt calls: `generate_schema_name`
+
+The override of `generate_schema_name` (or `generate_database_name`, `generate_alias_name`) is a
+macro like any other: call it by name. The name is text, so `output: text`; the `node` that you do
+not need is `null`.
+
+```yaml
+  - macro: generate_schema_name
+    cases:
+      - name: a_custom_schema_gets_the_name_of_the_base_schema_in_front
+        given:
+          arguments: {custom_schema_name: marts, node: null}
+        overrides:
+          env_vars: {CI: "false"}    # CI sets it to true, so a case that is not for CI sets it
+        output: text
+        expect:
+          rows:
+            - {result: analytics_marts}
+
+      - name: in_ci_the_schema_is_one_of_the_run_s_own
+        given:
+          arguments: {custom_schema_name: marts, node: null}
+        overrides:
+          macros: {is_running_in_ci: true}
+        output: text
+        expect:
+          rows:
+            - {result: ci_marts}
+```
+
+`target` cannot be overridden in a case, so a macro that tells `prod` from `dev` by `target.name`
+runs with the target of your profile (`--target` picks another one). Have it ask a macro, a var or
+an environment variable, as above, and a case can set that.
+
 ## A package's macro
 
 Name it with its package, and install the package as you do for the project (`dbt deps`, or let the

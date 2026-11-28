@@ -174,9 +174,28 @@ there runs in CI.
 | stops with an error, or warns | `expect.error`, `expect.warning` |
 | reads a `var`, an environment variable, or calls another macro | `overrides` |
 | is a macro of a package (`dbt_utils.slugify`) | `macro: package.macro` |
+| is dbt's own, overridden in your project (`generate_schema_name`) | `output: text`, as below |
 | reads a model or a source | `given.inputs`: the rows it is to see |
 | writes (insert, merge, delete) | `setup.relations` and `expect.query` (this one writes: read [the warning](https://github.com/HirofumiTsuda/dbt-macro-test/blob/main/docs/spec.md#a-macro-that-writes)) |
 | returns the text of a statement | `run: execute` |
+
+For instance, your override of `generate_schema_name` is a macro like any other: its name is text,
+the `node` you do not need is `null`, and what it tells apart (CI, here) is a macro or an
+environment variable that a case can set (`target` cannot be overridden in a case):
+
+```yaml
+  - macro: generate_schema_name
+    cases:
+      - name: in_ci_the_schema_is_one_of_the_run_s_own
+        given:
+          arguments: {custom_schema_name: marts, node: null}
+        overrides:
+          macros: {is_running_in_ci: true}
+        output: text
+        expect:
+          rows:
+            - {result: ci_marts}
+```
 
 [`dev/sample_project`](https://github.com/HirofumiTsuda/dbt-macro-test/tree/main/dev/sample_project)
 is a small dbt project with a spec for each of these, one to read and to try a change on. Every key
