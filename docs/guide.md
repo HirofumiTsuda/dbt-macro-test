@@ -202,6 +202,8 @@ not need is `null`.
       - name: a_custom_schema_gets_the_name_of_the_base_schema_in_front
         given:
           arguments: {custom_schema_name: marts, node: null}
+        overrides:
+          env_vars: {CI: "false"}    # CI sets it to true, so a case that is not for CI sets it
         output: text
         expect:
           rows:
